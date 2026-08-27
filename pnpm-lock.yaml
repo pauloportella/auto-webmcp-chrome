@@ -9,34 +9,53 @@ importers:
   .:
     devDependencies:
       '@mcp-b/webmcp-polyfill':
-        specifier: 4.0.0
-        version: 4.0.0
+        specifier: 5.0.1
+        version: 5.0.1
 
 packages:
 
-  '@cfworker/json-schema@4.1.1':
-    resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
+  '@mcp-b/webmcp-polyfill@5.0.1':
+    resolution: {integrity: sha512-xw/7f0bu4dsqWaGCE4RbB5/nkkbczeIP6NNeatE61Yxfpfp3r2E7pdgHmtYKb3oZ2BxROiM/yWkgiM3Ol0nkjA==}
+    engines: {node: '>=20'}
 
-  '@mcp-b/webmcp-polyfill@4.0.0':
-    resolution: {integrity: sha512-7M6WS3IcxaIEhidbS9N7wrrGjtJf474Vi4Fn1hGkFkmYFT5EoFw/kS/4CSdUR/KmlInO1kyluHRY6t3avMQfFw==}
-    engines: {node: '>=18'}
+  '@mcp-b/webmcp-types@5.0.1':
+    resolution: {integrity: sha512-UN7GsTrudXoMWxTL6n6451C19r5nsBzU4WLovRC6YVFnOJk3N5qYwmQySAISEi/0fcWkRDcT3OqAee7/jrl1iA==}
+    engines: {node: '>=20'}
 
-  '@mcp-b/webmcp-types@4.0.0':
-    resolution: {integrity: sha512-CUBBmiut1UBsiD3FAF6xrLKeKAuJkzd6/BlL1C/uo8sVpwY42NW4mls9rLcTxmLF/8Cj5/ZOwJiLzXl/T3GIQg==}
+  '@modelcontextprotocol/core@2.0.0':
+    resolution: {integrity: sha512-pJCEwGG7Lfr/+PQp9ZTwKXNeO5wzbfKL7H3MYpCorM4oFBoQrdjnBgEoqG+RjhsvS1FKrDbKux+M1HhlnGWqcA==}
+    engines: {node: '>=20'}
+
+  '@modelcontextprotocol/server@2.0.0':
+    resolution: {integrity: sha512-YhHWdHfpFMQfd0prsEnxKeS3Qz3ytIGmsS0sth4KDjnacIT7hxk6hXHkJ9KysxlkvTM+WZAtQbbcUhdoP4Hvtw==}
+    engines: {node: '>=20'}
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
 snapshots:
 
-  '@cfworker/json-schema@4.1.1': {}
-
-  '@mcp-b/webmcp-polyfill@4.0.0':
+  '@mcp-b/webmcp-polyfill@5.0.1':
     dependencies:
-      '@cfworker/json-schema': 4.1.1
-      '@mcp-b/webmcp-types': 4.0.0
+      '@mcp-b/webmcp-types': 5.0.1
       '@standard-schema/spec': 1.1.0
 
-  '@mcp-b/webmcp-types@4.0.0': {}
+  '@mcp-b/webmcp-types@5.0.1':
+    dependencies:
+      '@modelcontextprotocol/server': 2.0.0
+
+  '@modelcontextprotocol/core@2.0.0':
+    dependencies:
+      zod: 4.4.3
+
+  '@modelcontextprotocol/server@2.0.0':
+    dependencies:
+      '@modelcontextprotocol/core': 2.0.0
+      zod: 4.4.3
 
   '@standard-schema/spec@1.1.0': {}
+
+  zod@4.4.3: {}
