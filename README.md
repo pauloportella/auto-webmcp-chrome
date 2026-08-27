@@ -5,6 +5,12 @@
 
 Auto WebMCP turns standard web forms into structured WebMCP tools. Compatible browser agents can discover a form's fields and populate several controls in one structured action, while final submission remains under the user's control.
 
+## Demo
+
+[![Auto WebMCP upgrading a normal form and allowing an agent to fill 27 fields in one call](artwork/demo.gif)](artwork/demo.mp4)
+
+A site ships a normal form without WebMCP. Auto WebMCP upgrades it into a structured tool that a compatible agent can discover and call.
+
 ## Capabilities
 
 - Creates a tool and JSON Schema from native form controls, labels, ARIA text, choices, and validation constraints.

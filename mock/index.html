@@ -39,7 +39,6 @@
       summary { cursor: pointer; font-weight: 750; }
       [data-conditional][hidden] { display: none; }
       button { grid-column: 1 / -1; color: white; background: #126441; border-color: #126441; font-weight: 700; cursor: pointer; }
-      #run-webmcp { margin-top: 18px; background: #17201c; border-color: #17201c; }
       .eyebrow { margin: 0 0 6px; color: #126441; font: 700 .75rem/1 system-ui; letter-spacing: .12em; text-transform: uppercase; }
       .status { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px; font-weight: 700; }
       .dot { width: 10px; height: 10px; border-radius: 50%; background: #c78b16; }
@@ -47,7 +46,7 @@
       dl { display: grid; gap: 12px; margin: 0; }
       dt { color: #68756e; font-size: .78rem; }
       dd { margin: 2px 0 0; overflow-wrap: anywhere; font-family: ui-monospace, monospace; }
-      #complete-result, #webmcp-result { min-height: 1.5em; margin: 16px 0 0; color: #126441; font-weight: 650; }
+      #complete-result { min-height: 1.5em; margin: 16px 0 0; color: #126441; font-weight: 650; }
       @media (max-width: 760px) { .benefits { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } .full, fieldset, .actions, button { grid-column: 1; } }
     </style>
   </head>
@@ -197,8 +196,6 @@
           <div><dt>field annotations</dt><dd id="fields">—</dd></div>
           <div><dt>extension build</dt><dd id="build">—</dd></div>
         </dl>
-        <button id="run-webmcp" type="button">Run WebMCP integration test</button>
-        <p id="webmcp-result" role="status"></p>
       </details>
 
     </main>
@@ -212,7 +209,6 @@
       setStoreMode();
       const completeForm = document.querySelector("#complete-form");
       const inspector = document.querySelector("#inspector");
-      const testResult = document.querySelector("#webmcp-result");
       const show = () => {
         const forms = [...document.forms].filter((form) => form.hasAttribute("data-webmcp-complete-tool"));
         const ready = forms.length > 0;
@@ -253,58 +249,6 @@
         for (const section of completeForm.querySelectorAll("[data-conditional]")) {
           section.hidden = section.dataset.conditional !== occupation;
         }
-      });
-      document.querySelector("#run-webmcp").addEventListener("click", async () => {
-        if (!document.modelContext) {
-          testResult.textContent = "FAIL: document.modelContext is unavailable in this Chrome profile.";
-          return;
-        }
-        testResult.textContent = "Discovering the generated tool…";
-        const tools = await document.modelContext.getTools();
-        const tool = tools.find(({ name }) => name === "fill_complete_native_form_test");
-        if (!tool) {
-          testResult.textContent = `FAIL: generated tool not found. Discovered: ${tools.map(({ name }) => name).join(", ") || "none"}.`;
-          return;
-        }
-        const activated = new Promise((resolve) => window.addEventListener("toolactivated", resolve, { once: true }));
-        const args = {
-          full_name: "Test Person",
-          email: "test@example.com",
-          phone: "+431234567",
-          website: "https://example.com",
-          query: "WebMCP",
-          password: "local-test-only",
-          quantity: 3,
-          priority: 7,
-          favourite_colour: "#336699",
-          appointment_date: "2026-09-15",
-          appointment_time: "14:30",
-          appointment_month: "2026-10",
-          appointment_week: "2026-W42",
-          appointment_datetime: "2026-09-15T14:30",
-          country: "at",
-          framework: "Svelte",
-          topics: ["agents", "standards"],
-          contact_method: "email",
-          features: ["schema", "population", "events"],
-          terms_accepted: true,
-          occupation: "student",
-          school_name: "Example University",
-          graduation_month: "6",
-          graduation_year: "2028",
-          company_name: "Example Company",
-          industry_years: 4,
-          notes: "Local WebMCP regression test",
-        };
-        const execution = document.modelContext.executeTool(tool, JSON.stringify(args));
-        await Promise.race([activated, new Promise((resolve) => setTimeout(resolve, 1_000))]);
-        const output = await execution;
-        const populated = JSON.parse(output).structuredContent?.populatedFields === Object.keys(args).length && completeForm.checkValidity();
-        if (!populated) {
-          testResult.textContent = "FAIL: tool was discovered but did not populate the form.";
-          return;
-        }
-        testResult.textContent = `PASS: discovered and populated all ${Object.keys(args).length} supported fields with ${tool.name}; nothing was submitted. Output: ${output}`;
       });
       show();
     </script>

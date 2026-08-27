@@ -7,6 +7,7 @@ const packageManifest = JSON.parse(await readFile(new URL("package.json", root),
 const lockfile = await readFile(new URL("pnpm-lock.yaml", root), "utf8");
 const sourceManifest = JSON.parse(await readFile(new URL("src/manifest.json", root), "utf8"));
 const buildManifest = JSON.parse(await readFile(new URL("dist/manifest.json", root), "utf8"));
+const formLab = await readFile(new URL("mock/index.html", root), "utf8");
 
 test("package and extension versions match", () => {
   assert.match(packageManifest.version, /^\d+(\.\d+){1,3}$/);
@@ -79,4 +80,9 @@ test("production build includes its popup and required PNG icons", async () => {
     true,
   );
   assert.match(notices, /Copyright \(c\) 2020 Jeremy Danyow/);
+});
+
+test("form lab leaves WebMCP discovery and execution to the agent", () => {
+  assert.doesNotMatch(formLab, /run-webmcp|webmcp-result/);
+  assert.doesNotMatch(formLab, /modelContext\.(?:getTools|executeTool)/);
 });
