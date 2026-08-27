@@ -2,3 +2,4 @@ node_modules/
 .pnpm-store/
 dist/
 release/
+.DS_Store

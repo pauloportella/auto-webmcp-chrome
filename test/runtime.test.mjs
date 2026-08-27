@@ -53,6 +53,30 @@ test("bundled runtime polyfills, registers, populates, and never submits", async
     value: "open",
     label: "Open Ended",
   });
+  const checkedCheckbox = control({
+    name: "same_value_checkboxes",
+    type: "checkbox",
+    value: "on",
+    label: "Checked checkbox",
+  });
+  const defaultCheckbox = control({
+    name: "same_value_checkboxes",
+    type: "checkbox",
+    value: "on",
+    label: "Default checkbox",
+  });
+  const checkedRadio = control({
+    name: "same_value_radios",
+    type: "radio",
+    value: "on",
+    label: "Checked radio",
+  });
+  const defaultRadio = control({
+    name: "same_value_radios",
+    type: "radio",
+    value: "on",
+    label: "Default radio",
+  });
   const generatedId = control({ name: "generated_id", readOnly: true });
   const honeypot = control({ name: "company_website", ariaHidden: true });
   let focused = false;
@@ -66,6 +90,10 @@ test("bundled runtime polyfills, registers, populates, and never submits", async
       professional,
       web,
       openEnded,
+      checkedCheckbox,
+      defaultCheckbox,
+      checkedRadio,
+      defaultRadio,
       generatedId,
       honeypot,
     ],
@@ -76,6 +104,7 @@ test("bundled runtime polyfills, registers, populates, and never submits", async
         "data-webmcp-tool-description": "Fill the stay form.",
       })[name] || null,
     isConnected: true,
+    matches: () => true,
     querySelector: () => ({ focus: () => (focused = true) }),
     requestSubmit: () => (submitted = true),
   };
@@ -141,7 +170,7 @@ test("bundled runtime polyfills, registers, populates, and never submits", async
     },
   ]);
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(scans, 2);
+  assert.equal(scans, 1);
   assert.equal(runtimeWrites, 1);
   assert.equal(context.document.modelContext.__isWebMCPPolyfill, true);
   const [tool] = await context.document.modelContext.getTools();
@@ -186,6 +215,28 @@ test("bundled runtime polyfills, registers, populates, and never submits", async
         uniqueItems: true,
         description: "themes",
       },
+      same_value_checkboxes: {
+        type: "array",
+        items: {
+          type: "string",
+          anyOf: [
+            { type: "string", const: "checked_checkbox", title: "Checked checkbox" },
+            { type: "string", const: "default_checkbox", title: "Default checkbox" },
+          ],
+          enum: ["checked_checkbox", "default_checkbox"],
+        },
+        uniqueItems: true,
+        description: "same_value_checkboxes",
+      },
+      same_value_radios: {
+        type: "string",
+        anyOf: [
+          { type: "string", const: "checked_radio", title: "Checked radio" },
+          { type: "string", const: "default_radio", title: "Default radio" },
+        ],
+        enum: ["checked_radio", "default_radio"],
+        description: "same_value_radios",
+      },
     },
     minProperties: 1,
     additionalProperties: false,
@@ -199,6 +250,8 @@ test("bundled runtime polyfills, registers, populates, and never submits", async
         guests: "2",
         role: "student",
         themes: ["web"],
+        same_value_checkboxes: ["checked_checkbox"],
+        same_value_radios: "checked_radio",
       }),
     ),
   );
@@ -208,6 +261,10 @@ test("bundled runtime polyfills, registers, populates, and never submits", async
   assert.equal(professional.checked, false);
   assert.equal(web.checked, true);
   assert.equal(openEnded.checked, false);
+  assert.equal(checkedCheckbox.checked, true);
+  assert.equal(defaultCheckbox.checked, false);
+  assert.equal(checkedRadio.checked, true);
+  assert.equal(defaultRadio.checked, false);
   assert.equal(result.structuredContent.submitted, false);
   assert.equal(focused, true);
   assert.equal(submitted, false);

@@ -22,6 +22,6 @@ Generated metadata and tools exist only in the current page and are removed when
 
 Auto WebMCP runs on ordinary HTTP and HTTPS pages because its single purpose is to make forms available as WebMCP tools wherever the user encounters them. Chrome's **Site access** control can restrict the websites on which the extension runs. Chrome-protected pages do not allow the extension to run.
 
-## Policy changes and contact
+## Policy changes
 
 This policy will be updated before a release changes how Auto WebMCP handles data.

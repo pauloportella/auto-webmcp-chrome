@@ -19,6 +19,8 @@
 
   const registrations = new Map();
   let scanScheduled = false;
+  let scanAll = true;
+  const dirtyForms = new Set();
 
   function cleanText(value, limit) {
     return String(value || "").replace(/\s+/g, " ").trim().slice(0, limit);
@@ -64,13 +66,39 @@
     );
   }
 
-  function enumDetails(controls) {
+  function choiceDetails(controls) {
     const choices = [...controls]
       .filter((control) => !control.disabled)
-      .map((control) => ({ title: choiceTitle(control), value: String(control.value) }));
+      .map((control) => ({ control, title: choiceTitle(control), value: String(control.value) }));
+    const valueCounts = new Map();
+    for (const { value } of choices) valueCounts.set(value, (valueCounts.get(value) || 0) + 1);
+
+    const usedTokens = new Set(
+      choices
+        .filter(({ value }) => value && valueCounts.get(value) === 1)
+        .map(({ value }) => value),
+    );
+    return choices.map((choice, index) => {
+      if (choice.value && valueCounts.get(choice.value) === 1) {
+        return { ...choice, token: choice.value };
+      }
+      const base =
+        cleanText(choice.title, 100)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_")
+          .replace(/^_+|_+$/g, "") || `option_${index + 1}`;
+      let token = base;
+      for (let suffix = 2; usedTokens.has(token); suffix += 1) token = `${base}_${suffix}`;
+      usedTokens.add(token);
+      return { ...choice, token };
+    });
+  }
+
+  function enumDetails(controls) {
+    const choices = choiceDetails(controls);
     return {
-      anyOf: choices.map(({ title, value }) => ({ type: "string", const: value, title })),
-      enum: choices.map(({ value }) => value),
+      anyOf: choices.map(({ title, token }) => ({ type: "string", const: token, title })),
+      enum: choices.map(({ token }) => token),
     };
   }
 
@@ -166,28 +194,41 @@
   function populateGroup(group, value) {
     const first = group[0];
     if (first.type === "radio") {
-      for (const control of group) {
-        setControlProperty(control, "checked", String(value) === control.value);
-        dispatchEdit(control);
+      for (const choice of choiceDetails(group)) {
+        setControlProperty(choice.control, "checked", String(value) === choice.token);
+        dispatchEdit(choice.control);
       }
       return;
     }
     if (first.type === "checkbox") {
       const selected = Array.isArray(value) ? new Set(value.map(String)) : null;
-      for (const control of group) {
+      for (const choice of choiceDetails(group)) {
         setControlProperty(
-          control,
+          choice.control,
           "checked",
-          selected ? selected.has(control.value) : Boolean(value),
+          selected ? selected.has(choice.token) : Boolean(value),
         );
-        dispatchEdit(control);
+        dispatchEdit(choice.control);
       }
       return;
     }
-    if (first.tagName === "SELECT" && first.multiple) {
-      const selected = new Set(Array.isArray(value) ? value.map(String) : []);
-      for (const option of first.options) {
-        setControlProperty(option, "selected", selected.has(option.value));
+    if (first.tagName === "SELECT") {
+      const choices = choiceDetails(first.options);
+      if (first.multiple) {
+        const selected = new Set(Array.isArray(value) ? value.map(String) : []);
+        for (const choice of choices) {
+          setControlProperty(choice.control, "selected", selected.has(choice.token));
+        }
+      } else {
+        const selectedIndex = choices.findIndex(({ token }) => token === String(value));
+        if (selectedIndex >= 0) {
+          const selected = choices[selectedIndex];
+          if (choices.filter(({ value: optionValue }) => optionValue === selected.value).length > 1) {
+            setControlProperty(first, "selectedIndex", [...first.options].indexOf(selected.control));
+          } else {
+            setControlProperty(first, "value", selected.value);
+          }
+        }
       }
       dispatchEdit(first);
       return;
@@ -219,12 +260,12 @@
     };
   }
 
-  function signature(form) {
+  function signature(form, schema) {
     return JSON.stringify({
       name: form.getAttribute("data-webmcp-complete-tool"),
       title: form.getAttribute("data-webmcp-tool-title"),
       description: form.getAttribute("data-webmcp-tool-description"),
-      inputSchema: inputSchema(form),
+      inputSchema: schema,
     });
   }
 
@@ -237,7 +278,8 @@
     );
     if (!name || !description || controlsByName(form).size === 0) return;
 
-    const nextSignature = signature(form);
+    const schema = inputSchema(form);
+    const nextSignature = signature(form, schema);
     const current = registrations.get(form);
     if (current?.signature === nextSignature) return;
     current?.controller.abort();
@@ -251,7 +293,7 @@
           name,
           title,
           description,
-          inputSchema: inputSchema(form),
+          inputSchema: schema,
           annotations: { readOnlyHint: false, untrustedContentHint: false },
           execute: (args) => executeForm(form, args),
         },
@@ -266,6 +308,21 @@
   function scan() {
     scanScheduled = false;
     markRuntime();
+    if (!scanAll) {
+      for (const form of dirtyForms) {
+        if (form.isConnected && form.matches?.(TOOL_SELECTOR)) register(form);
+      }
+      dirtyForms.clear();
+      for (const [form, registration] of registrations) {
+        if (form.isConnected && form.matches?.(TOOL_SELECTOR)) continue;
+        registration.controller.abort();
+        registrations.delete(form);
+      }
+      return;
+    }
+
+    scanAll = false;
+    dirtyForms.clear();
     const seenForms = new Set();
     const seenNames = new Set();
     for (const form of document.querySelectorAll(TOOL_SELECTOR)) {
@@ -282,31 +339,44 @@
     }
   }
 
-  function scheduleScan() {
+  function scheduleScan(forms) {
+    if (!forms) scanAll = true;
+    else for (const form of forms) dirtyForms.add(form);
     if (scanScheduled) return;
     scanScheduled = true;
     queueMicrotask(scan);
   }
 
-  function touchesToolForm(mutations) {
-    return mutations.some((mutation) => {
+  function affectedToolForms(mutations) {
+    const forms = new Set();
+    let needsFullScan = false;
+    for (const mutation of mutations) {
       if (mutation.type === "attributes") {
-        return (
-          mutation.attributeName === "data-webmcp-complete-tool" ||
-          mutation.target.closest?.(TOOL_SELECTOR)
-        );
+        const form =
+          mutation.target.tagName === "FORM"
+            ? mutation.target
+            : mutation.target.closest?.(TOOL_SELECTOR);
+        if (form) forms.add(form);
+        continue;
       }
-      if (mutation.target.closest?.(TOOL_SELECTOR)) return true;
-      return [...mutation.addedNodes, ...mutation.removedNodes].some(
-        (node) =>
-          node.nodeType === 1 &&
-          (node.matches?.(TOOL_SELECTOR) || node.querySelector?.(TOOL_SELECTOR)),
-      );
-    });
+      const owner = mutation.target.closest?.(TOOL_SELECTOR);
+      if (owner) forms.add(owner);
+      if (
+        [...mutation.addedNodes, ...mutation.removedNodes].some(
+          (node) =>
+            node.nodeType === 1 &&
+            (node.matches?.(TOOL_SELECTOR) || node.querySelector?.(TOOL_SELECTOR)),
+        )
+      ) {
+        needsFullScan = true;
+      }
+    }
+    return needsFullScan ? null : forms;
   }
 
   new MutationObserver((mutations) => {
-    if (touchesToolForm(mutations)) scheduleScan();
+    const forms = affectedToolForms(mutations);
+    if (forms === null || forms.size) scheduleScan(forms || undefined);
   }).observe(document, {
     attributes: true,
     attributeFilter: [

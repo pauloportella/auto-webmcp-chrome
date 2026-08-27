@@ -61,7 +61,7 @@ pnpm check
 pnpm package
 ```
 
-`pnpm package` creates `release/auto-webmcp-0.10.0.zip`, the versioned production archive. Development reload code is excluded from that archive.
+`pnpm package` creates `release/auto-webmcp-0.10.1.zip`, the versioned production archive. Development reload code is excluded from that archive.
 
 ## Contributing and security
 
