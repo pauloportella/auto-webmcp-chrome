@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Auto WebMCP Form Lab</title>
+    <style>
+      :root { color-scheme: light; font: 16px/1.45 system-ui, sans-serif; color: #17201c; background: #edf3ee; }
+      body { margin: 0; }
+      main { width: min(1180px, calc(100% - 32px)); margin: 56px auto; }
+      header { margin-bottom: 28px; }
+      h1 { margin: 0 0 8px; font-size: clamp(2rem, 5vw, 4.5rem); letter-spacing: -.055em; }
+      header p { max-width: 680px; color: #53615a; }
+      section, details { background: white; border: 1px solid #d8e1da; border-radius: 20px; padding: 24px; box-shadow: 0 14px 40px #17392310; }
+      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+      label { display: grid; gap: 7px; font-weight: 650; }
+      input, select, textarea, button { box-sizing: border-box; width: 100%; min-height: 46px; border-radius: 10px; border: 1px solid #b8c5bb; padding: 10px 12px; font: inherit; }
+      textarea { min-height: 110px; resize: vertical; }
+      fieldset { min-width: 0; margin: 0; border: 1px solid #d8e1da; border-radius: 12px; padding: 14px; }
+      legend { padding: 0 6px; font-weight: 750; }
+      .full, fieldset, .actions { grid-column: 1 / -1; }
+      .choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+      .choice { display: flex; grid-template-columns: none; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid #d8e1da; border-radius: 9px; }
+      .choice input { width: auto; min-height: 0; margin: 0; }
+      .visually-hidden-choice input { position: absolute; opacity: 0; pointer-events: none; }
+      .visually-hidden-choice:focus-within { outline: 3px solid #67a987; }
+      .hint { margin: 4px 0 0; color: #68756e; font-size: .86rem; font-weight: 400; }
+      .actions { display: flex; gap: 10px; }
+      .actions button { grid-column: auto; }
+      .secondary { color: #17201c; background: white; border-color: #b8c5bb; }
+      .wide { margin-top: 20px; }
+      .wide h2 { margin-top: 0; }
+      .benefits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+      .benefits h2 { margin: 0 0 6px; font-size: 1rem; }
+      .benefits p { margin: 0; color: #53615a; }
+      #inspector dd { font-family: inherit; font-weight: 700; }
+      html[data-store-shot] details { display: none; }
+      html[data-store-shot] main { width: min(1540px, calc(100% - 80px)); margin-top: 44px; }
+      summary { cursor: pointer; font-weight: 750; }
+      [data-conditional][hidden] { display: none; }
+      button { grid-column: 1 / -1; color: white; background: #126441; border-color: #126441; font-weight: 700; cursor: pointer; }
+      #run-webmcp { margin-top: 18px; background: #17201c; border-color: #17201c; }
+      .eyebrow { margin: 0 0 6px; color: #126441; font: 700 .75rem/1 system-ui; letter-spacing: .12em; text-transform: uppercase; }
+      .status { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px; font-weight: 700; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; background: #c78b16; }
+      .ready .dot { background: #15945d; box-shadow: 0 0 0 5px #15945d18; }
+      dl { display: grid; gap: 12px; margin: 0; }
+      dt { color: #68756e; font-size: .78rem; }
+      dd { margin: 2px 0 0; overflow-wrap: anywhere; font-family: ui-monospace, monospace; }
+      #complete-result, #webmcp-result { min-height: 1.5em; margin: 16px 0 0; color: #126441; font-weight: 650; }
+      @media (max-width: 760px) { .benefits { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } .full, fieldset, .actions, button { grid-column: 1; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Auto WebMCP demo</p>
+        <h1>Ordinary forms become WebMCP tools.</h1>
+        <p>This form ships without WebMCP metadata. Auto WebMCP registers one structured tool locally in your browser.</p>
+      </header>
+      <section id="inspector">
+        <p class="eyebrow">Extension status</p>
+        <div class="status"><span class="dot"></span><span id="state">Waiting for extension…</span></div>
+        <dl>
+          <div><dt>Forms ready</dt><dd id="ready-count">—</dd></div>
+          <div><dt>WebMCP page API</dt><dd id="api">—</dd></div>
+          <div><dt>Form submission</dt><dd>Manual review</dd></div>
+          <div><dt>Extension data transfer</dt><dd>None</dd></div>
+        </dl>
+        <p class="hint">The original page remains visible and usable. Auto WebMCP adds one structured tool without submitting anything.</p>
+      </section>
+      <section class="wide benefits" aria-label="Product benefits">
+        <div><h2>Structured schemas</h2><p>Agents receive field names, choices, types, and constraints.</p></div>
+        <div><h2>No extension service</h2><p>Auto WebMCP sends no data to an extension-operated service.</p></div>
+        <div><h2>Review before submit</h2><p>Generated tools populate controls but never submit the form.</p></div>
+      </section>
+      <section class="wide">
+        <p class="eyebrow">Comprehensive form</p>
+        <h2>Every native form shape in one place</h2>
+        <p>This plain form deliberately includes visible, grouped, conditional, hidden, read-only, disabled, and anti-bot controls so the generated schema can be audited without touching a real account.</p>
+        <form id="complete-form" class="form-grid" aria-label="Complete native form test" novalidate>
+          <input type="hidden" name="csrf_token" value="fixture-token">
+
+          <label>Full name <input name="full_name" autocomplete="name" required></label>
+          <label>Email address <input type="email" name="email" autocomplete="email" required></label>
+          <label>Telephone <input type="tel" name="phone" autocomplete="tel"></label>
+          <label>Website <input type="url" name="website" placeholder="https://example.com"></label>
+          <label class="full">Search query <input type="search" name="query" placeholder="Search the catalogue"></label>
+          <label>Password <input type="password" name="password" autocomplete="new-password"></label>
+          <label>Quantity <input type="number" name="quantity" min="1" max="20" step="1" value="1"></label>
+          <label>Priority <input type="range" name="priority" min="0" max="10" value="5"></label>
+          <label>Favourite colour <input type="color" name="favourite_colour" value="#126441"></label>
+          <label>Appointment date <input type="date" name="appointment_date"></label>
+          <label>Appointment time <input type="time" name="appointment_time"></label>
+          <label>Appointment month <input type="month" name="appointment_month"></label>
+          <label>Appointment week <input type="week" name="appointment_week"></label>
+          <label>Local date and time <input type="datetime-local" name="appointment_datetime"></label>
+
+          <label>Country
+            <select name="country" required>
+              <option value="">Choose a country</option>
+              <option value="at">Austria</option>
+              <option value="br">Brazil</option>
+              <option value="gb">United Kingdom</option>
+            </select>
+          </label>
+          <label>Framework
+            <input name="framework" list="framework-options">
+            <datalist id="framework-options">
+              <option value="React"></option>
+              <option value="Svelte"></option>
+              <option value="Vue"></option>
+            </datalist>
+          </label>
+          <label class="full">Topics
+            <select name="topics" multiple size="4">
+              <option value="accessibility">Accessibility</option>
+              <option value="agents">Agents</option>
+              <option value="browsers">Browsers</option>
+              <option value="standards">Web standards</option>
+            </select>
+          </label>
+
+          <fieldset>
+            <legend>Preferred contact method</legend>
+            <div class="choice-grid visually-hidden-choice">
+              <label class="choice"><input type="radio" name="contact_method" value="email" required> Email</label>
+              <label class="choice"><input type="radio" name="contact_method" value="phone"> Phone</label>
+              <label class="choice"><input type="radio" name="contact_method" value="none"> Do not contact me</label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Features to test</legend>
+            <div class="choice-grid">
+              <label class="choice"><input type="checkbox" name="features" value="schema"> Schema</label>
+              <label class="choice"><input type="checkbox" name="features" value="population"> Population</label>
+              <label class="choice"><input type="checkbox" name="features" value="events"> Events</label>
+            </div>
+          </fieldset>
+
+          <label class="choice full"><input type="checkbox" name="terms_accepted" value="yes" required> I accept the test terms</label>
+
+          <fieldset>
+            <legend>Occupation</legend>
+            <div class="choice-grid">
+              <label class="choice"><input type="radio" name="occupation" value="student" checked> Student</label>
+              <label class="choice"><input type="radio" name="occupation" value="professional"> Professional</label>
+            </div>
+          </fieldset>
+
+          <div class="full form-grid" data-conditional="student">
+            <label>School name <input name="school_name" required></label>
+            <label>Graduation month
+              <select name="graduation_month" required>
+                <option value="">Month</option>
+                <option value="1">January</option>
+                <option value="6">June</option>
+                <option value="12">December</option>
+              </select>
+              <select name="graduation_year" required aria-label="Graduation year">
+                <option value="">Year</option>
+                <option value="2027">2027</option>
+                <option value="2028">2028</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="full form-grid" data-conditional="professional" hidden>
+            <label>Company name <input name="company_name" required></label>
+            <label>Years in the industry <input type="number" name="industry_years" min="0" max="80" required></label>
+          </div>
+
+          <label class="full">Notes <textarea name="notes" placeholder="Free-form details"></textarea></label>
+          <label>Read-only generated ID <input name="generated_id" value="fixture-123" readonly></label>
+          <label>Disabled legacy field <input name="legacy_code" value="disabled" disabled></label>
+          <label>Attachment (unsupported by design) <input type="file" name="attachment"></label>
+
+          <div aria-hidden="true" hidden>
+            <label for="company_website">Leave this field blank</label>
+            <input id="company_website" name="company_website" tabindex="-1" autocomplete="off" pattern=".{0}">
+          </div>
+
+          <div class="actions">
+            <button type="submit">Review complete form</button>
+            <button class="secondary" type="reset">Reset fixture</button>
+          </div>
+        </form>
+        <p id="complete-result" role="status"></p>
+      </section>
+
+      <details class="wide">
+        <summary>Developer diagnostics</summary>
+        <dl>
+          <div><dt>tool name</dt><dd id="toolname">—</dd></div>
+          <div><dt>tool description</dt><dd id="tooldescription">—</dd></div>
+          <div><dt>field annotations</dt><dd id="fields">—</dd></div>
+          <div><dt>extension build</dt><dd id="build">—</dd></div>
+        </dl>
+        <button id="run-webmcp" type="button">Run WebMCP integration test</button>
+        <p id="webmcp-result" role="status"></p>
+      </details>
+
+    </main>
+    <script>
+      const setStoreMode = () => {
+        const enabled = new URLSearchParams(location.search).has("store") || location.hash === "#store";
+        document.documentElement.toggleAttribute("data-store-shot", enabled);
+        document.querySelector("details")?.toggleAttribute("hidden", enabled);
+      };
+      window.addEventListener("hashchange", setStoreMode);
+      setStoreMode();
+      const completeForm = document.querySelector("#complete-form");
+      const inspector = document.querySelector("#inspector");
+      const testResult = document.querySelector("#webmcp-result");
+      const show = () => {
+        const forms = [...document.forms].filter((form) => form.hasAttribute("data-webmcp-complete-tool"));
+        const ready = forms.length > 0;
+        inspector.classList.toggle("ready", ready);
+        document.querySelector("#state").textContent = ready
+          ? `${forms.length} WebMCP ${forms.length === 1 ? "tool" : "tools"} ready`
+          : "Waiting for extension…";
+        document.querySelector("#ready-count").textContent = String(forms.length);
+        document.querySelector("#toolname").textContent = forms.map((form) => form.getAttribute("data-webmcp-complete-tool")).join(" · ") || "—";
+        document.querySelector("#tooldescription").textContent = forms.map((form) => form.getAttribute("data-webmcp-tool-description")).join(" · ") || "—";
+        document.querySelector("#fields").textContent = forms.flatMap((form) => [...form.elements].filter((field) => field.name).map((field) => `${field.name}: ${field.getAttribute("toolparamdescription") || "—"}`)).join(" · ") || "—";
+        document.querySelector("#api").textContent = "modelContext" in document ? "available" : "not exposed in this Chrome build/profile";
+        document.querySelector("#build").textContent = document.documentElement.dataset.webmcpAnnotatorBuildStamp || "—";
+      };
+      const inspectorObserver = new MutationObserver(show);
+      for (const form of document.forms) {
+        inspectorObserver.observe(form, {
+          attributes: true,
+          attributeFilter: [
+            "data-webmcp-complete-tool",
+            "data-webmcp-tool-description",
+            "toolparamdescription",
+          ],
+          subtree: true,
+        });
+      }
+      inspectorObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["data-webmcp-annotator-build-stamp"],
+      });
+      completeForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        document.querySelector("#complete-result").textContent = `Prepared ${[...new FormData(completeForm)].length} form value(s) without navigating.`;
+      });
+      completeForm.addEventListener("change", (event) => {
+        if (event.target.name !== "occupation") return;
+        const occupation = new FormData(completeForm).get("occupation");
+        for (const section of completeForm.querySelectorAll("[data-conditional]")) {
+          section.hidden = section.dataset.conditional !== occupation;
+        }
+      });
+      document.querySelector("#run-webmcp").addEventListener("click", async () => {
+        if (!document.modelContext) {
+          testResult.textContent = "FAIL: document.modelContext is unavailable in this Chrome profile.";
+          return;
+        }
+        testResult.textContent = "Discovering the generated tool…";
+        const tools = await document.modelContext.getTools();
+        const tool = tools.find(({ name }) => name === "fill_complete_native_form_test");
+        if (!tool) {
+          testResult.textContent = `FAIL: generated tool not found. Discovered: ${tools.map(({ name }) => name).join(", ") || "none"}.`;
+          return;
+        }
+        const activated = new Promise((resolve) => window.addEventListener("toolactivated", resolve, { once: true }));
+        const args = {
+          full_name: "Test Person",
+          email: "test@example.com",
+          phone: "+431234567",
+          website: "https://example.com",
+          query: "WebMCP",
+          password: "local-test-only",
+          quantity: 3,
+          priority: 7,
+          favourite_colour: "#336699",
+          appointment_date: "2026-09-15",
+          appointment_time: "14:30",
+          appointment_month: "2026-10",
+          appointment_week: "2026-W42",
+          appointment_datetime: "2026-09-15T14:30",
+          country: "at",
+          framework: "Svelte",
+          topics: ["agents", "standards"],
+          contact_method: "email",
+          features: ["schema", "population", "events"],
+          terms_accepted: true,
+          occupation: "student",
+          school_name: "Example University",
+          graduation_month: "6",
+          graduation_year: "2028",
+          company_name: "Example Company",
+          industry_years: 4,
+          notes: "Local WebMCP regression test",
+        };
+        const execution = document.modelContext.executeTool(tool, JSON.stringify(args));
+        await Promise.race([activated, new Promise((resolve) => setTimeout(resolve, 1_000))]);
+        const output = await execution;
+        const populated = JSON.parse(output).structuredContent?.populatedFields === Object.keys(args).length && completeForm.checkValidity();
+        if (!populated) {
+          testResult.textContent = "FAIL: tool was discovered but did not populate the form.";
+          return;
+        }
+        testResult.textContent = `PASS: discovered and populated all ${Object.keys(args).length} supported fields with ${tool.name}; nothing was submitted. Output: ${output}`;
+      });
+      show();
+    </script>
+  </body>
+</html>

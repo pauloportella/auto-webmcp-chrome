@@ -1,0 +1,19 @@
+{
+  "name": "auto-webmcp-chrome",
+  "version": "0.10.0",
+  "private": true,
+  "description": "Chrome extension that turns standard web forms into structured WebMCP tools.",
+  "author": "Paulo Portella",
+  "license": "MIT",
+  "packageManager": "pnpm@11.24.0",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/dev.mjs --build",
+    "dev": "node scripts/dev.mjs",
+    "package": "pnpm run build && node scripts/package.mjs",
+    "check": "pnpm run build && node --test"
+  },
+  "devDependencies": {
+    "@mcp-b/webmcp-polyfill": "4.0.0"
+  }
+}
