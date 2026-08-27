@@ -1,0 +1,146 @@
+:root {
+  color-scheme: light dark;
+  font: 13px/1.4 system-ui, sans-serif;
+  color: light-dark(#17201c, #edf7f1);
+  background: light-dark(#f4f8f5, #102019);
+}
+
+body {
+  width: 320px;
+  margin: 0;
+}
+
+main {
+  padding: 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 16px;
+}
+
+h2 {
+  margin-bottom: 8px;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  opacity: .65;
+}
+
+.state {
+  margin-top: 2px;
+  color: #2d9a66;
+  font-weight: 650;
+}
+
+.state.warning {
+  color: light-dark(#9a6516, #f2bd5f);
+}
+
+.state.error {
+  color: light-dark(#a13a3a, #ff8a8a);
+}
+
+section,
+.notice,
+.privacy,
+.site-access {
+  margin-top: 14px;
+}
+
+section {
+  padding: 12px;
+  border: 1px solid light-dark(#d9e4dc, #30483c);
+  border-radius: 12px;
+  background: light-dark(#fff, #172a21);
+}
+
+dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0;
+}
+
+dt {
+  color: light-dark(#637068, #a6b7ad);
+  font-size: 11px;
+}
+
+dd {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+ul {
+  display: grid;
+  gap: 5px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+li {
+  overflow: hidden;
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: light-dark(#edf5f0, #20382c);
+  font-family: ui-monospace, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notice,
+.privacy,
+.site-access {
+  color: light-dark(#53615a, #b9c8bf);
+}
+
+.notice {
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: light-dark(#fff2cf, #493815);
+  color: light-dark(#6d4b0f, #ffe09b);
+}
+
+.notice:empty {
+  display: none;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+button {
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: #217c53;
+  cursor: pointer;
+}
+
+a {
+  color: light-dark(#176b48, #78d9aa);
+}

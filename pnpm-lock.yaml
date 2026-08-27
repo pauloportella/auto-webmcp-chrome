@@ -1,0 +1,42 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    devDependencies:
+      '@mcp-b/webmcp-polyfill':
+        specifier: 4.0.0
+        version: 4.0.0
+
+packages:
+
+  '@cfworker/json-schema@4.1.1':
+    resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
+
+  '@mcp-b/webmcp-polyfill@4.0.0':
+    resolution: {integrity: sha512-7M6WS3IcxaIEhidbS9N7wrrGjtJf474Vi4Fn1hGkFkmYFT5EoFw/kS/4CSdUR/KmlInO1kyluHRY6t3avMQfFw==}
+    engines: {node: '>=18'}
+
+  '@mcp-b/webmcp-types@4.0.0':
+    resolution: {integrity: sha512-CUBBmiut1UBsiD3FAF6xrLKeKAuJkzd6/BlL1C/uo8sVpwY42NW4mls9rLcTxmLF/8Cj5/ZOwJiLzXl/T3GIQg==}
+
+  '@standard-schema/spec@1.1.0':
+    resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
+
+snapshots:
+
+  '@cfworker/json-schema@4.1.1': {}
+
+  '@mcp-b/webmcp-polyfill@4.0.0':
+    dependencies:
+      '@cfworker/json-schema': 4.1.1
+      '@mcp-b/webmcp-types': 4.0.0
+      '@standard-schema/spec': 1.1.0
+
+  '@mcp-b/webmcp-types@4.0.0': {}
+
+  '@standard-schema/spec@1.1.0': {}

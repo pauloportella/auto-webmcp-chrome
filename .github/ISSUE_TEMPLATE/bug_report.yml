@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a reproducible problem with Auto WebMCP
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, personal form data, or security vulnerabilities. Report vulnerabilities through the Security tab.
+  - type: input
+    id: version
+    attributes:
+      label: Auto WebMCP version
+      placeholder: 0.10.0
+    validations:
+      required: true
+  - type: input
+    id: chrome
+    attributes:
+      label: Chrome version
+      placeholder: 149.0.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Use a public test page or describe the form without sensitive data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add sanitized logs or screenshots when useful.

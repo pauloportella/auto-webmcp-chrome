@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Auto WebMCP status</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="icons/icon48.png" width="40" height="40" alt="">
+        <div>
+          <h1>Auto WebMCP</h1>
+          <p id="state" class="state">Checking this page…</p>
+        </div>
+      </header>
+
+      <section aria-labelledby="summary-title">
+        <h2 id="summary-title">Current page</h2>
+        <dl>
+          <div><dt>Generated forms</dt><dd id="generated">—</dd></div>
+          <div><dt>Available tools</dt><dd id="available">—</dd></div>
+        </dl>
+        <ul id="tools" aria-label="Available WebMCP tools"></ul>
+      </section>
+
+      <p id="compatibility" class="notice"></p>
+      <p class="privacy">Form structure and choice values stay in this browser. Auto WebMCP never submits forms or sends page data.</p>
+      <p class="site-access">Use Chrome’s <strong>Site access</strong> control to limit where the extension runs.</p>
+
+      <footer>
+        <button id="refresh" type="button">Refresh</button>
+        <a href="https://developer.chrome.com/docs/ai/webmcp" target="_blank">WebMCP docs</a>
+      </footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
