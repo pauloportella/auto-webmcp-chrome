@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auto WebMCP Widget Lab</title><link rel="stylesheet" href="/playground.css">
+</head>
+<body>
+  <div class="topbar"><div class="nav-inner">
+    <a class="brand" href="/" aria-label="Auto WebMCP home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Auto WebMCP</a>
+    <nav aria-label="Playgrounds"><a href="/">Form lab</a><a href="/widgets" aria-current="page">Widgets</a><a href="/search">Search</a></nav>
+  </div></div>
+  <main>
+    <header>
+      <div><p class="eyebrow">The widget playground</p><h1>Beyond the form.<br><span>Into the interface.</span></h1></div>
+      <p>Inputs can live anywhere. Try standalone fields, expandable controls, and a custom destination picker with your agent.</p>
+    </header>
+    <section class="benefits" aria-label="What to explore">
+      <div><span class="step" aria-hidden="true">01</span><h2>Fill independent inputs</h2><p>No form tag required.</p></div>
+      <div><span class="step" aria-hidden="true">02</span><h2>Reveal more controls</h2><p>Open a section, then discover its fields.</p></div>
+      <div><span class="step" aria-hidden="true">03</span><h2>Choose a destination</h2><p>Turn rendered options into a selection.</p></div>
+    </section>
+    <div class="workspace">
+      <aside class="lab-note">
+        <p class="eyebrow">About this lab</p><h2>Small controls.<br>Real interactions.</h2>
+        <p>These inputs work independently of an HTML form. Your agent can fill them and open the extra controls when needed.</p>
+        <dl><div><dt>Data</dt><dd>Fictional travel preferences</dd></div><div><dt>Navigation</dt><dd>Stays on this page</dd></div></dl>
+        <p class="hint">All controls are synthetic. Nothing on this page books a trip or sends data.</p>
+      </aside>
+      <div class="form-card">
+        <div class="form-intro"><p class="eyebrow">Interactive controls · Sample data only</p><h2>Plan a fictional getaway</h2><p>Explore each control yourself, or ask your browser agent to take a turn.</p></div>
+        <section aria-label="Travel preferences" class="form-grid widget-group">
+          <h3 class="form-section"><span aria-hidden="true">01</span> Travel preferences</h3>
+          <label>Destination<input id="destination" placeholder="Where would you like to go?"></label>
+          <label>Guests<input id="guests" type="number" min="1" max="10" placeholder="1–10 guests"></label>
+          <label class="choice full"><input id="flexible" type="checkbox">Flexible dates</label>
+        </section>
+        <div class="form-grid widget-group">
+          <h3 class="form-section"><span aria-hidden="true">02</span> An independent input</h3>
+          <label class="full">Standalone search<input id="search" placeholder="Try a city, place, or idea"></label>
+        </div>
+        <details class="widget-disclosure"><summary>Extra preferences <span>Optional notes</span></summary><label>Notes<textarea id="notes" placeholder="Anything else for your imaginary trip?"></textarea></label></details>
+        <div class="form-grid widget-group">
+          <h3 class="form-section"><span aria-hidden="true">03</span> A custom picker</h3>
+          <p class="field-help full">Open the picker to reveal the destinations your agent can choose.</p>
+          <button type="button" class="picker-trigger full" aria-label="Choose a destination" aria-haspopup="listbox" aria-controls="destinations" aria-expanded="false" id="open">Choose a destination <span aria-hidden="true">↓</span></button>
+          <div id="destinations" class="option-list full" role="listbox" aria-label="Destinations" hidden>
+            <button type="button" role="option" aria-selected="false" id="graz">Graz</button><button type="button" role="option" aria-selected="false" id="vienna" tabindex="-1">Vienna</button>
+          </div>
+          <p id="selected" class="selection-result full" role="status">No destination selected</p>
+        </div>
+      </div>
+    </div>
+    <footer><span>Auto WebMCP · Widget playground</span><span>Runs locally. No account needed.</span></footer>
+  </main>
+  <script>
+    const opener=document.getElementById('open'), list=document.getElementById('destinations');
+    opener.addEventListener('click',()=>{list.hidden=false;opener.setAttribute('aria-expanded','true')});
+    for(const option of list.children) option.addEventListener('click',()=>{
+      for(const peer of list.children) {peer.setAttribute('aria-selected',String(peer===option));peer.tabIndex=peer===option?0:-1;}
+      document.getElementById('selected').textContent=option.textContent;
+    });
+    list.addEventListener('keydown',event=>{
+      if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;
+      event.preventDefault();
+      const options=[...list.children], index=options.indexOf(document.activeElement);
+      const next=event.key==='Home'?0:event.key==='End'?options.length-1:(index+(event.key==='ArrowDown'?1:-1)+options.length)%options.length;
+      options[next].focus();
+    });
+  </script>
+</body></html>

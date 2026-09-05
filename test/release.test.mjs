@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, mkdtemp, mkdir, cp, symlink, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import test from "node:test";
 
 const root = new URL("../", import.meta.url);
@@ -31,12 +36,13 @@ test("production manifest has only the permissions required by the single purpos
     run_at: "document_start",
     world: "MAIN",
   });
-  assert.deepEqual(buildManifest.content_scripts[1].js, ["content.js"]);
+  assert.deepEqual(buildManifest.content_scripts[1].js, ["control-utils.js", "content.js"]);
   assert.equal("all_frames" in buildManifest.content_scripts[1], false);
 });
 
 test("production build includes its popup and required PNG icons", async () => {
   for (const file of [
+    "dist/control-utils.js",
     "dist/content.js",
     "dist/webmcp-runtime.js",
     "dist/LICENSE.txt",
@@ -85,4 +91,22 @@ test("production build includes its popup and required PNG icons", async () => {
 test("form lab leaves WebMCP discovery and execution to the agent", () => {
   assert.doesNotMatch(formLab, /run-webmcp|webmcp-result/);
   assert.doesNotMatch(formLab, /modelContext\.(?:getTools|executeTool)/);
+});
+
+test("production rebuild excludes obsolete files from the ZIP", async () => {
+  const dir=await mkdtemp(join(tmpdir(),'auto-webmcp-package-'));
+  const run=promisify(execFile);
+  try {
+    await cp(new URL('scripts/',root),join(dir,'scripts'),{recursive:true});
+    for(const name of ['src','node_modules','LICENSE','THIRD_PARTY_NOTICES.txt']) {
+      await symlink(fileURLToPath(new URL(name,root)),join(dir,name));
+    }
+    await mkdir(join(dir,'dist'));
+    await writeFile(join(dir,'dist','obsolete.js'),'// stale build artifact');
+    await run(process.execPath,['scripts/dev.mjs','--build'],{cwd:dir});
+    await run(process.execPath,['scripts/package.mjs'],{cwd:dir});
+    const {stdout}=await run('unzip',['-Z1',`release/auto-webmcp-${packageManifest.version}.zip`],{cwd:dir});
+    assert.match(stdout,/^manifest\.json$/m);
+    assert.doesNotMatch(stdout,/obsolete\.js/);
+  } finally {await rm(dir,{recursive:true,force:true});}
 });

@@ -52,7 +52,7 @@ test("popup reports browser-visible WebMCP tools without reading form values", a
     toolNames: ["site_tool", "fill_search"],
   });
 
-  assert.equal(elements["#state"].textContent, "2 form(s) ready");
+  assert.equal(elements["#state"].textContent, "2 tool(s) available");
   assert.equal(elements["#generated"].textContent, "1");
   assert.equal(elements["#available"].textContent, "2");
   assert.deepEqual(

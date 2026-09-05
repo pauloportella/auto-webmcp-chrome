@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Auto WebMCP regression tests</title>
+<h1>Auto WebMCP regression tests</h1>
+<p>Synthetic local forms only. Tests fill fields but never submit.</p>
+<button id="run" type="button">Run regression tests</button>
+<pre id="results" role="status">Ready</pre><main id="fixtures"></main>
+<script>
+const fixtures = document.getElementById('fixtures');
+const wait = () => new Promise(resolve => setTimeout(resolve, 30));
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+const schema = tool => typeof tool.inputSchema === 'string' ? JSON.parse(tool.inputSchema) : tool.inputSchema;
+async function mount(html) {
+  fixtures.innerHTML = html;
+  await wait();
+  return fixtures.querySelector('form');
+}
+async function toolFor(form) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const tools = await document.modelContext.getTools();
+    const tool = tools.find(tool => tool.name === form.getAttribute('data-webmcp-complete-tool'));
+    if (tool) return tool;
+    await wait();
+  }
+  throw new Error('Tool not registered');
+}
+async function call(form, args) {
+  try {
+    const raw = await document.modelContext.executeTool(await toolFor(form), JSON.stringify(args));
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch { return {isError:true}; }
+}
+async function runRegressionTests() {
+  const results = [];
+  document.getElementById('run').disabled = true;
+  async function check(name, fn) {
+    try { await fn(); results.push({name,pass:true}); }
+    catch(error) { results.push({name,pass:false,error:String(error.message)}); }
+    document.getElementById('results').textContent = JSON.stringify(results,null,2);
+  }
+  await check('reactive replacement fills the visible later field', async () => {
+    const f = await mount('<form><input name="first"><input name="second"></form>');
+    f.elements.first.addEventListener('input', () => f.elements.second.replaceWith(f.elements.second.cloneNode()));
+    const result = await call(f, {first:'one',second:'two'});
+    assert(!result.isError && result.structuredContent.populatedFields === 2 && f.elements.second.value === 'two', 'Visible field was not populated');
+  });
+  await check('queued reactive replacement fills the current field', async () => {
+    const f = await mount('<form><input name="first"><input name="second"></form>');
+    f.elements.first.addEventListener('input', () => setTimeout(() => f.elements.second.replaceWith(f.elements.second.cloneNode()),0));
+    const result = await call(f,{first:'one',second:'two'});
+    assert(!result.isError && f.elements.second.value === 'two','Queued update lost input');
+  });
+  await check('removed or newly disabled fields produce partial results', async () => {
+    for (const remove of [true,false]) {
+      const f = await mount('<form><input name="first"><input name="second"></form>');
+      f.elements.first.addEventListener('input', () => { if(remove) f.elements.second.remove(); else f.elements.second.disabled=true; });
+      const result = await call(f,{first:'one',second:'two'});
+      assert(result.isError && result.structuredContent.populatedFields===1 && result.structuredContent.failedFields===1,'Partial fill misreported');
+    }
+  });
+  await check('replacement within a checkbox group is not reported as success', async () => {
+    const f=await mount('<form><input type="checkbox" name="p" value="a"><input type="checkbox" name="p" value="b"></form>');
+    f.elements.p[0].addEventListener('input',()=>f.elements.p[1].replaceWith(f.elements.p[1].cloneNode()));
+    const result=await call(f,{p:['a','b']});
+    assert(result.isError,'Detached group event target was accepted');
+  });
+  await check('disabled fieldsets, optgroups and hidden ancestry are excluded', async () => {
+    const f=await mount('<form><fieldset disabled><legend><input name="legend"></legend><input name="locked"></fieldset><div hidden><input name="concealed"></div><input hidden name="hidden"><select name="choice"><optgroup disabled><option value="blocked">Blocked</option></optgroup><option value="ok">OK</option></select></form>');
+    const props=schema(await toolFor(f)).properties;
+    assert(props.legend && !props.locked && !props.concealed && !props.hidden && !props.choice.enum.includes('blocked'),'Ineligible control advertised');
+    assert((await call(f,{locked:'no'})).isError && f.elements.locked.value === '', 'Disabled control changed');
+  });
+  await check('imperative name collision preserves site tool and registers other forms', async () => {
+    const controller=new AbortController();
+    await document.modelContext.registerTool({name:'fill_search',description:'Site-owned test tool',inputSchema:{type:'object'},execute:()=> 'site'}, {signal:controller.signal});
+    try {
+      const f=await mount('<form aria-label="Search"><input name="q"></form><form aria-label="Other"><input name="q"></form>');
+      const own=await toolFor(f), other=await toolFor(fixtures.querySelectorAll('form')[1]);
+      assert(own.name !== 'fill_search' && other.name !== own.name,'Collision not resolved');
+      const site=(await document.modelContext.getTools()).find(t=>t.name==='fill_search');
+      assert(site.description==='Site-owned test tool','Site registration was changed');
+    } finally {controller.abort();}
+  });
+  await check('HTML step base is preserved', async () => {
+    const f=await mount('<form><input type="number" name="n" min="1" step="2"></form>');
+    assert(!(await call(f,{n:3})).isError && f.elements.n.value==='3','Valid offset step rejected');
+    assert((await call(f,{n:4})).isError && f.elements.n.value==='3','Invalid step changed field');
+  });
+  await check('invalid pattern and time inputs are rejected before any edit', async () => {
+    const f=await mount('<form><input name="first" value="preserve"><input name="code" pattern="[A-Z]{3}" value="ABC"><input type="time" name="time" value="12:00"></form>');
+    for(const args of [{first:'changed',code:'prefixABC'},{first:'changed',time:'not-a-time'}]) {
+      assert((await call(f,args)).isError && f.elements.first.value==='preserve','Invalid input caused partial mutation');
+    }
+    assert(!(await call(f,{code:'XYZ',time:'13:30'})).isError,'Valid input rejected');
+  });
+  await check('changed constraints and empty-form eligibility reconcile', async () => {
+    const f=await mount('<form><input type="number" name="n" max="10"></form>');
+    await toolFor(f); f.elements.n.max='2'; await wait();
+    assert(schema(await toolFor(f)).properties.n.maximum===2,'Maximum stale');
+    const name=f.getAttribute('data-webmcp-complete-tool'); f.elements.n.disabled=true; await wait();
+    assert(!(await document.modelContext.getTools()).some(t=>t.name===name),'Empty tool remained registered');
+    f.elements.n.disabled=false; await wait(); assert(await toolFor(f),'Enabled form not discovered');
+    f.elements.n.readOnly=true; await wait();
+    assert(!(await document.modelContext.getTools()).some(t=>t.name===f.getAttribute('data-webmcp-complete-tool')),'Readonly tool remained');
+  });
+  await check('external form-associated controls are discovered and moved', async () => {
+    const f=await mount('<form id="external"></form><form id="other"></form>');
+    fixtures.insertAdjacentHTML('beforeend','<input name="outside" form="external">'); await wait();
+    assert(schema(await toolFor(f)).properties.outside,'External field missing');
+    fixtures.querySelector('input').setAttribute('form','other'); await wait();
+    assert(schema(await toolFor(fixtures.querySelector('#other'))).properties.outside,'Moved field missing');
+  });
+  await check('hidden ancestor unregisters and unhide restores tools', async () => {
+    const f=await mount('<section><form><input name="v"></form></section>');
+    const name=(await toolFor(f)).name; f.parentElement.hidden=true; await wait();
+    assert(!(await document.modelContext.getTools()).some(t=>t.name===name),'Hidden tool remained');
+    f.parentElement.hidden=false; await wait(); assert(await toolFor(f),'Unhidden tool missing');
+  });
+  await check('repeated text never silently clears omitted entries', async () => {
+    const f=await mount('<form><input name="part" value="first"><input name="part" value="preserve"></form>');
+    assert((await call(f,{part:['changed']})).isError && f.elements.part[1].value==='preserve' && f.elements.part[0].value==='first','Short array changed fields');
+    assert(!(await call(f,{part:['one','two']})).isError && f.elements.part[1].value==='two','Full array failed');
+  });
+  await check('repeated number and select fields have complete typed arrays', async () => {
+    const f=await mount('<form><input type="number" name="n"><input type="number" name="n"><select name="s"><option value="a">A</option><option value="b">B</option></select><select name="s"><option value="a">A</option><option value="b">B</option></select></form>');
+    const result=await call(f,{n:[3,4],s:['a','b']});
+    assert(!result.isError && f.elements.n[1].value==='4' && f.elements.s[1].value==='b','Repeated typed fields failed');
+  });
+  await check('choice groups and duplicate option values still populate', async () => {
+    const f=await mount('<form><label>First<input type="checkbox" name="c"></label><label>Second<input type="checkbox" name="c"></label><label>Yes<input type="radio" name="r" value="yes"></label><label>No<input type="radio" name="r" value="no"></label><select multiple name="m"><option value="a">A</option><option value="b">B</option></select><select name="s"><option value="same">First</option><option value="same">Second</option></select></form>');
+    const props=schema(await toolFor(f)).properties;
+    const result=await call(f,{c:[props.c.items.enum[0]],r:'yes',m:['a','b'],s:props.s.enum[1]});
+    assert(!result.isError && f.elements.c[0].checked && !f.elements.c[1].checked && f.elements.r[0].checked && f.elements.m.selectedOptions.length===2 && f.elements.s.selectedIndex===1,'Choice regression');
+  });
+  await check('registry status and hint follow actual tool removals', async () => {
+    const f=await mount('<form><input name="v"></form>'); await toolFor(f); await wait();
+    const before=JSON.parse(document.documentElement.getAttribute('data-webmcp-registry-status'));
+    assert(before.count === (await document.modelContext.getTools()).length,'Status does not match registry');
+    f.remove(); await wait();
+    const after=JSON.parse(document.documentElement.getAttribute('data-webmcp-registry-status'));
+    assert(after.count===(await document.modelContext.getTools()).length && !document.documentElement.hasAttribute('data-webmcp-tools-available'),'Stale hint');
+  });
+  await check('ARIA references describe fields and refresh when changed', async () => {
+    const f=await mount('<span id="label">Account nickname</span><span id="help">Use a short name</span><form><input name="x" aria-labelledby="label" aria-describedby="help"></form>');
+    assert(schema(await toolFor(f)).properties.x.description==='Account nickname. Use a short name','ARIA references missing');
+    fixtures.querySelector('#label').textContent='Display name'; await wait();
+    assert(schema(await toolFor(f)).properties.x.description==='Display name. Use a short name','ARIA description stale');
+  });
+  await check('GET routing validates projected required checkbox and radio states', async () => {
+    for (const type of ['checkbox','radio']) {
+      const f=await mount(`<form role="search" method="get" action="/results"><input type="search" name="q" value="chairs"><input type="${type}" name="filter" value="a" required>${type==='radio'?'<input type="radio" name="filter" value="b" required checked>':''}</form>`);
+      let events=0;
+      for(const name of ['input','change','submit','formdata']) f.addEventListener(name,()=>events++);
+      const fields=[...f.querySelectorAll('[name="filter"]')];
+      const original=fields.map(field=>field.checked);
+      const project=(_form,_name,value)=>fields.map(control=>({control,property:'checked',value:value && control.value==='a'}));
+      const target=globalThis.__autoWebMcpSearch.url(f,{filter:true},project);
+      assert(target.searchParams.get('filter')==='a' && target.searchParams.get('q')==='chairs','Valid required selection rejected or serialized incorrectly');
+      assert(fields.every((field,index)=>field.checked===original[index]) && events===0,'Routing changed the original form');
+      let rejected=false;
+      try {globalThis.__autoWebMcpSearch.url(f,{filter:false},project);} catch {rejected=true;}
+      assert(rejected,'Missing required selection accepted');
+    }
+  });
+  await check('standalone replacement verifies the unique current control only', async () => {
+    for(const ambiguous of [false,true]) {
+      await mount('<input name="sort" aria-label="Sort">');
+      const input=fixtures.querySelector('input');
+      input.addEventListener('input',()=>input.replaceWith(...Array.from({length:ambiguous?2:1},()=>input.cloneNode(true))));
+      const result=await call(input,{sort:'cheapest'});
+      assert(fixtures.querySelector('input').value==='cheapest','Site replacement lost value');
+      assert(ambiguous ? result.isError : !result.isError && result.structuredContent.populatedFields===1,'Replacement verification was incorrect');
+    }
+  });
+  await check('widget schema pairs opaque tokens with readable choice labels', async () => {
+    await mount('<div role="listbox" aria-label="Area"><div role="option" id="opaque-601">Graz</div><div role="option" id="opaque-606">Graz-Umgebung</div></div>');
+    const options=schema(await toolFor(fixtures.firstElementChild)).properties.option.anyOf;
+    assert(options?.some(option=>option.const==='opaque-601' && option.title==='Graz'),'Readable label missing');
+  });
+  await check('closed widget verifies a changed value in its linked input', async () => {
+    await mount('<input role="combobox" aria-label="Area" aria-controls="areas" value="Vienna"><div id="areas" role="listbox" aria-label="Area"><div role="option" id="opaque-601">Graz</div></div>');
+    const box=fixtures.querySelector('[role="listbox"]'), input=fixtures.querySelector('input');
+    box.firstElementChild.addEventListener('click',()=>{input.value='Graz';box.remove();});
+    const result=await call(box,{option:'opaque-601'});
+    assert(!result.isError && result.structuredContent?.verified===true && input.value==='Graz','Completed selection reported as failure');
+  });
+  await check('unobservable widget outcome reports activation without claiming selection', async () => {
+    await mount('<div role="listbox" aria-label="Area"><div role="option" id="opaque-601">Graz</div></div>');
+    const box=fixtures.firstElementChild;
+    let clicks=0;
+    box.firstElementChild.addEventListener('click',()=>{clicks++;box.remove();});
+    const result=await call(box,{option:'opaque-601'});
+    assert(!result.isError && result.structuredContent?.activated===true && result.structuredContent.verified===false && clicks===1,'Unknown outcome confused with failure or verified success');
+  });
+  fixtures.replaceChildren(); await wait();
+  document.getElementById('results').textContent=JSON.stringify(results,null,2);
+  document.getElementById('results').dataset.complete='true';
+  document.getElementById('run').disabled=false;
+  return results;
+}
+document.getElementById('run').addEventListener('click',runRegressionTests);
+</script></html>

@@ -1,3 +1,4 @@
+const controlUtils = globalThis.__autoWebMcpControls;
 const TOOL_NAME_LIMIT = 30;
 const TOOL_DESCRIPTION_LIMIT = 500;
 const PARAMETER_DESCRIPTION_LIMIT = 150;
@@ -6,6 +7,9 @@ const COMPLETE_TOOL_ATTRIBUTE = "data-webmcp-complete-tool";
 const TOOL_DESCRIPTION_ATTRIBUTE = "data-webmcp-tool-description";
 const TOOL_TITLE_ATTRIBUTE = "data-webmcp-tool-title";
 const generatedForms = new WeakSet();
+const generatedDescriptions = new WeakMap();
+const dirtyForms = new Set();
+let scanAll = false;
 let scanScheduled = false;
 
 function cleanText(value, limit = Infinity) {
@@ -25,13 +29,24 @@ function toToolName(value) {
   );
 }
 
+function referencedText(control, attribute) {
+  return cleanText((control.getAttribute(attribute) || "").split(/\s+/)
+    .map((id) => control.ownerDocument?.getElementById(id)?.textContent || "").join(" "), PARAMETER_DESCRIPTION_LIMIT);
+}
+
 function formLabel(form, index) {
+  if (controlUtils.widgetKind(form)) {
+    return referencedText(form, "aria-labelledby") || cleanText(form.getAttribute("aria-label")) ||
+      cleanText(form.labels?.[0]?.textContent) || cleanText(form.textContent, 150) || "Choices";
+  }
+  if (form.matches?.(controlUtils.selector)) return controlLabel(form, [form]);
   const submit = form.querySelector('button[type="submit"], input[type="submit"]');
   const submitLabel = cleanText(submit?.textContent || submit?.value, PARAMETER_DESCRIPTION_LIMIT);
   const specificSubmitLabel = /^(submit|continue|next|save|send|go)$/i.test(submitLabel)
     ? ""
     : submitLabel;
   return (
+    referencedText(form, "aria-labelledby") ||
     cleanText(form.getAttribute("aria-label"), PARAMETER_DESCRIPTION_LIMIT) ||
     cleanText(form.querySelector("legend, h1, h2, h3")?.textContent, PARAMETER_DESCRIPTION_LIMIT) ||
     specificSubmitLabel ||
@@ -115,13 +130,13 @@ function nearbyGroupLabel(controls) {
   return "";
 }
 
-function controlLabel(control, controls) {
-  const peers = controls.filter((candidate) => candidate.name === control.name);
+function controlLabel(control, controls, peers = controls.filter((candidate) => candidate.name === control.name)) {
   const grouped = ["checkbox", "radio"].includes(control.type) && peers.length > 1;
   if (grouped) return nearbyGroupLabel(peers) || humanizeName(control.name);
 
   const aria = cleanLabel(
-    control.getAttribute("aria-description") || control.getAttribute("aria-label"),
+    referencedText(control, "aria-labelledby") || control.getAttribute("aria-label") ||
+    referencedText(control, "aria-describedby") || control.getAttribute("aria-description"),
   );
   if (aria) return aria;
 
@@ -161,18 +176,11 @@ function controlLabel(control, controls) {
 }
 
 function eligibleControls(form) {
-  return [...form.elements].filter(
-    (control) =>
-      !control.disabled &&
-      !control.readOnly &&
-      !control.closest?.('[aria-hidden="true"]') &&
-      control.matches?.("input[name], select[name], textarea[name]") &&
-      !["button", "file", "hidden", "image", "reset", "submit"].includes(control.type),
-  );
+  return controlUtils.controls(form).filter(controlUtils.eligible);
 }
 
-function uniqueToolName(label, usedNames) {
-  const base = toToolName(`fill ${label}`);
+function uniqueToolName(label, usedNames, verb = "fill") {
+  const base = toToolName(`${verb} ${label}`);
   let name = base;
   for (let suffix = 2; usedNames.has(name); suffix += 1) {
     const ending = `_${suffix}`;
@@ -193,16 +201,25 @@ function annotateForm(form, usedNames = new Set(), index = 0, pageTitle = "this 
     if (siteName) usedNames.add(siteName);
     return { name: siteName, label, generated: false, skipped: "site-owned" };
   }
-  if (form.closest?.('[hidden], [aria-hidden="true"]')) {
+  if (!controls.length || form.closest?.('[hidden], [aria-hidden="true"]')) {
     if (generatedForms.has(form)) {
       form.removeAttribute(COMPLETE_TOOL_ATTRIBUTE);
       form.removeAttribute(TOOL_DESCRIPTION_ATTRIBUTE);
       form.removeAttribute(TOOL_TITLE_ATTRIBUTE);
       generatedForms.delete(form);
     }
-    return { name, label, generated: false, skipped: "hidden" };
+    return { name, label, generated: false, skipped: controls.length ? "hidden" : "no-fields" };
   }
-  if (!controls.length) return { name, label, generated: false, skipped: "no-fields" };
+
+  const keys = new Set(controls.map(controlUtils.key).filter(Boolean));
+  for (const control of controls) {
+    if (controlUtils.key(control)) continue;
+    const base = toToolName(control.id || controlLabel(control, controls) || "field");
+    let key = base;
+    for (let suffix = 2; keys.has(key); suffix += 1) key = `${base}_${suffix}`;
+    control.setAttribute("data-webmcp-field-key", key);
+    keys.add(key);
+  }
 
   if (!name) {
     name = uniqueToolName(label, usedNames);
@@ -223,39 +240,45 @@ function annotateForm(form, usedNames = new Set(), index = 0, pageTitle = "this 
   }
   generatedForms.add(form);
 
+  const peers = new Map();
   for (const control of controls) {
-    const parameterDescription = controlLabel(control, controls);
-    if (parameterDescription && !cleanText(control.getAttribute("toolparamdescription"))) {
-      control.setAttribute("toolparamdescription", parameterDescription);
+    const group = peers.get(controlUtils.key(control)) || [];
+    group.push(control);
+    peers.set(controlUtils.key(control), group);
+  }
+  const groupLabels = new Map();
+  for (const control of controls) {
+    const group = peers.get(controlUtils.key(control));
+    const grouped = group.length > 1 && ["checkbox", "radio"].includes(control.type);
+    let parameterDescription = grouped ? groupLabels.get(controlUtils.key(control)) : null;
+    if (!parameterDescription) {
+      const label = controlLabel(control, controls, group);
+      const detail = referencedText(control, "aria-describedby") || cleanText(control.getAttribute("aria-description"));
+      parameterDescription = cleanText(detail && detail !== label ? `${label}. ${detail}` : label, PARAMETER_DESCRIPTION_LIMIT);
+      if (grouped) groupLabels.set(controlUtils.key(control), parameterDescription);
+    }
+    const previous = control.getAttribute("toolparamdescription");
+    if (parameterDescription && (!cleanText(previous) || previous === generatedDescriptions.get(control))) {
+      if (previous !== parameterDescription) control.setAttribute("toolparamdescription", parameterDescription);
+      generatedDescriptions.set(control, parameterDescription);
     }
   }
   return { name, label, generated: true };
 }
 
-function agentHintText(toolNames) {
+function agentHintText(toolNames, total = toolNames.length) {
   const preview = toolNames.slice(0, 3).join(", ");
-  const remaining = toolNames.length - 3;
+  const remaining = total - 3;
   return `WEBMCP AVAILABLE ON THIS PAGE. Registered tools: ${preview}${
     remaining > 0 ? ` (+${remaining} more)` : ""
-  }. Prefer these structured tools over clicking individual form controls. If WebMCP actions are not listed directly, access document.modelContext from the page's main JavaScript world. Call document.modelContext.getTools(), inspect inputSchema, then call document.modelContext.executeTool(toolObject, JSON.stringify(input)). Use the tool object returned by getTools(). Generated tools populate supported controls and never submit forms.`;
+  }. Prefer these structured tools over clicking individual form controls. If WebMCP actions are not listed directly, access document.modelContext from the page's main JavaScript world. Call document.modelContext.getTools(), inspect inputSchema, then call document.modelContext.executeTool(toolObject, JSON.stringify(input)). Use the tool object returned by getTools(). Fill tools edit controls; show/choose tools activate widgets; search tools navigate and send search parameters to the website.`;
 }
 
 function updateAgentHint() {
   const root = document.documentElement;
   if (!root) return;
 
-  const toolNames = [
-    ...new Set(
-      [...document.forms]
-        .filter(
-          (form) =>
-            form.hasAttribute(COMPLETE_TOOL_ATTRIBUTE) &&
-            form.hasAttribute(TOOL_DESCRIPTION_ATTRIBUTE),
-        )
-        .map((form) => cleanText(form.getAttribute(COMPLETE_TOOL_ATTRIBUTE), 128))
-        .filter(Boolean),
-    ),
-  ];
+  const { names: toolNames, count } = registryStatus();
   let hint = document.querySelector(AGENT_HINT_SELECTOR);
 
   if (!toolNames.length) {
@@ -266,7 +289,7 @@ function updateAgentHint() {
   }
 
   root.setAttribute("data-webmcp-tools-available", "true");
-  root.setAttribute("data-webmcp-tool-count", String(toolNames.length));
+  root.setAttribute("data-webmcp-tool-count", String(count));
 
   if (!hint) {
     hint = document.createElement("div");
@@ -288,84 +311,126 @@ function updateAgentHint() {
     (document.body || root).append(hint);
   }
 
-  const text = agentHintText(toolNames);
+  const text = agentHintText(toolNames, count);
   if (hint.textContent !== text) hint.textContent = text;
 }
 
-function annotateAll() {
-  const forms = [...document.forms];
+function annotateWidget(widget, usedNames, index) {
+  const kind = controlUtils.widgetKind(widget);
+  if (!kind || (kind === "choose" && !controlUtils.options(widget).length)) {
+    if (widget.hasAttribute("data-webmcp-tool-kind")) {
+      widget.removeAttribute(COMPLETE_TOOL_ATTRIBUTE);
+      widget.removeAttribute(TOOL_DESCRIPTION_ATTRIBUTE);
+    }
+    return;
+  }
+  const label = formLabel(widget, index);
+  const existing = widget.getAttribute(COMPLETE_TOOL_ATTRIBUTE);
+  if (!existing) {
+    const name = uniqueToolName(label, usedNames, kind === "expand" ? "show" : "choose");
+    widget.setAttribute(COMPLETE_TOOL_ATTRIBUTE, name);
+    usedNames.add(name);
+  }
+  if (widget.getAttribute("data-webmcp-tool-kind") !== kind) widget.setAttribute("data-webmcp-tool-kind", kind);
+  const description = kind === "expand"
+    ? `Show the controls or choices for ${label}. Discover tools again after opening. This only activates the disclosure.`
+    : `Choose one currently rendered option in ${label}. More options may appear after scrolling or typing.`;
+  if (widget.getAttribute(TOOL_DESCRIPTION_ATTRIBUTE) !== description) widget.setAttribute(TOOL_DESCRIPTION_ATTRIBUTE, description);
+  if (widget.getAttribute(TOOL_TITLE_ATTRIBUTE) !== label) widget.setAttribute(TOOL_TITLE_ATTRIBUTE, label);
+}
+
+function annotateAll(selected = null) {
+  const forms = [...new Set([...document.forms, ...[...document.querySelectorAll(controlUtils.selector)].filter(control => !control.form).map(controlUtils.scope)])];
+  const widgets = [...document.querySelectorAll(controlUtils.widgetSelector)];
   const usedNames = new Set(
-    forms
-      .flatMap((form) => [
-        cleanText(form.getAttribute("toolname")),
-        cleanText(form.getAttribute(COMPLETE_TOOL_ATTRIBUTE), 128),
-      ])
-      .filter(Boolean),
+    [...forms, ...widgets].flatMap((form) => [cleanText(form.getAttribute("toolname")), cleanText(form.getAttribute(COMPLETE_TOOL_ATTRIBUTE), 128)]).filter(Boolean),
   );
-  forms.forEach((form, index) => annotateForm(form, usedNames, index, document.title || location.host));
+  forms.forEach((form, index) => {
+    if (!selected || selected.has(form)) annotateForm(form, usedNames, index, document.title || location.host);
+  });
+  widgets.forEach((widget, index) => annotateWidget(widget, usedNames, index));
   updateAgentHint();
 }
 
-function scheduleAnnotation() {
+function scheduleAnnotation(forms) {
+  if (!forms) scanAll = true;
+  else for (const form of forms) dirtyForms.add(form);
   if (scanScheduled) return;
   scanScheduled = true;
   queueMicrotask(() => {
     scanScheduled = false;
-    annotateAll();
+    const selected = scanAll ? null : new Set(dirtyForms);
+    scanAll = false;
+    dirtyForms.clear();
+    annotateAll(selected);
   });
 }
 
-function touchesForm(mutations) {
-  return mutations.some((mutation) => {
-    if (mutation.type === "attributes") {
-      return mutation.target.matches?.("form") || mutation.target.querySelector?.("form");
+function affectedForms(mutations) {
+  const forms = new Set();
+  for (const mutation of mutations) {
+      if (!controlUtils.relevantMutation(mutation)) continue;
+    if (mutation.attributeName === "data-webmcp-registry-status") {
+      updateAgentHint();
+      continue;
     }
-    return [...mutation.addedNodes].some(
-      (node) =>
-        node.nodeType === Node.ELEMENT_NODE &&
-        (node.closest?.("form") || node.querySelector?.("form")),
-    );
-  });
+    if (["form", "id", "role", "aria-controls", "aria-expanded", "open"].includes(mutation.attributeName)) return null;
+    const target = mutation.target.nodeType === 3 ? mutation.target.parentElement : mutation.target;
+    const owner = target?.matches?.(controlUtils.selector) ? controlUtils.scope(target) : target?.closest?.(controlUtils.toolSelector);
+    if (owner) forms.add(owner);
+    const nodes = [...(mutation.addedNodes || []), ...(mutation.removedNodes || [])];
+    if (nodes.some(node => node.matches?.(controlUtils.widgetSelector) || node.querySelector?.(controlUtils.widgetSelector)) || target?.closest?.(controlUtils.widgetSelector)) return null;
+    if (mutation.type === "attributes") nodes.push(target);
+    for (const node of nodes) {
+      if (node.nodeType !== Node.ELEMENT_NODE) continue;
+      const form = node.matches?.(controlUtils.selector) ? controlUtils.scope(node) : node.closest?.(controlUtils.toolSelector);
+      if (form) forms.add(form);
+      for (const child of node.querySelectorAll?.("form, input, select, textarea") || []) {
+        if (child.matches("form")) forms.add(child);
+        else forms.add(controlUtils.scope(child));
+      }
+    }
+    // Explicit external label references need refreshing when their text changes.
+    if (target?.id && !target.closest?.("form")) {
+      for (const control of document.querySelectorAll("[aria-labelledby], [aria-describedby]")) {
+        const ids = `${control.getAttribute("aria-labelledby") || ""} ${control.getAttribute("aria-describedby") || ""}`.split(/\s+/);
+        if (ids.includes(target.id)) {
+          const form = controlUtils.scope(control);
+          if (form) forms.add(form);
+        }
+      }
+    }
+  }
+  return forms;
+}
+
+function registryStatus() {
+  // Page-world metadata is display-only, never authority for privileged operations.
+  try {
+    const raw = document.documentElement?.getAttribute("data-webmcp-registry-status");
+    if (!raw || raw.length > 10000) throw new Error("Missing status");
+    const status = JSON.parse(raw);
+    if (!Number.isSafeInteger(status.count) || status.count < 0 || !Array.isArray(status.names) ||
+        status.names.length > 20 || status.names.some((name) => typeof name !== "string" || name.length > 128)) {
+      throw new Error("Invalid status");
+    }
+    return { count: status.count, names: status.names, error: status.error === true };
+  } catch { return { count: 0, names: [], error: true }; }
 }
 
 async function getStatus() {
-  const forms = [...document.forms];
-  const annotated = forms.filter(
-    (form) =>
-      (form.hasAttribute(COMPLETE_TOOL_ATTRIBUTE) &&
-        form.hasAttribute(TOOL_DESCRIPTION_ATTRIBUTE)) ||
-      (form.hasAttribute("toolname") && form.hasAttribute("tooldescription")),
-  );
-  const runtime =
-    document.documentElement?.getAttribute("data-webmcp-form-runtime") ||
-    (typeof document.modelContext?.getTools === "function" ? "native" : "unavailable");
-  const apiAvailable = runtime !== "unavailable";
-  let tools = [];
-  let apiError = null;
-
-  if (runtime === "native" && typeof document.modelContext?.getTools === "function") {
-    try {
-      tools = await document.modelContext.getTools();
-    } catch (error) {
-      apiError = cleanText(error, 200);
-    }
-  } else if (runtime === "polyfill") {
-    tools = annotated.map((form) => ({
-      name: cleanText(
-        form.getAttribute(COMPLETE_TOOL_ATTRIBUTE) || form.getAttribute("toolname"),
-        100,
-      ),
-    }));
-  }
-
+  const forms = [...document.querySelectorAll(controlUtils.toolSelector)];
+  const status = registryStatus();
+  const runtime = document.documentElement?.getAttribute("data-webmcp-form-runtime");
+  const available = ["native", "polyfill"].includes(runtime);
   return {
-    apiAvailable,
-    apiError,
-    runtime,
-    annotatedForms: annotated.length,
+    apiAvailable: available,
+    apiError: available && status.error ? "Unable to confirm registered tools. Refresh this page." : null,
+    runtime: available ? runtime : "unavailable",
+    annotatedForms: forms.filter((form) => form.hasAttribute(COMPLETE_TOOL_ATTRIBUTE) || form.hasAttribute("toolname")).length,
     generatedForms: forms.filter((form) => generatedForms.has(form)).length,
-    toolCount: tools.length,
-    toolNames: tools.slice(0, 20).map(({ name }) => cleanText(name, 100)),
+    toolCount: status.count,
+    toolNames: status.names,
   };
 }
 
@@ -389,10 +454,14 @@ if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
 if (typeof document !== "undefined" && document.documentElement) {
   annotateAll();
   new MutationObserver((mutations) => {
-    if (touchesForm(mutations)) scheduleAnnotation();
+    const forms = affectedForms(mutations);
+    if (forms === null || forms.size) scheduleAnnotation(forms);
   }).observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ["aria-hidden", "hidden"],
+    attributeFilter: ["aria-hidden", "hidden", "inert", "disabled", "readonly", "name", "type", "form", "id", "role", "class", "style",
+      "aria-expanded", "aria-controls", "aria-haspopup", "aria-disabled", "open", "aria-label", "aria-labelledby", "aria-describedby", "aria-description", "placeholder", "for",
+      "data-webmcp-registry-status"],
+    characterData: true,
     childList: true,
     subtree: true,
   });

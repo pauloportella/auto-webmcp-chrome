@@ -5,6 +5,7 @@ import vm from "node:vm";
 
 const source = await readFile(new URL("../src/content.js", import.meta.url), "utf8");
 const context = { globalThis: {} };
+vm.runInNewContext(await readFile(new URL("../src/control-utils.js", import.meta.url), "utf8"), context);
 vm.runInNewContext(source, context);
 const { agentHintText, annotateForm, controlLabel, humanizeName, labelText, toToolName } =
   context.globalThis.__webMcpAnnotator;
@@ -34,13 +35,14 @@ function control(attributes = {}) {
     type: attributes.type || "text",
     labels: [{ textContent: attributes.label || "Destination" }],
     closest: () => null,
-    matches: () => true,
+    matches: (selector) => selector !== ":disabled",
   };
 }
 
 function form(attributes = {}, controls = [control()]) {
   return {
     ...element(attributes),
+    tagName: "FORM",
     id: attributes.id || "",
     elements: controls,
     closest: () => null,
@@ -163,10 +165,10 @@ test("does not modify site-owned WebMCP forms or forms without usable fields", (
 test("creates a concise factual agent discovery hint", () => {
   assert.equal(
     agentHintText(["fill_preferences"]),
-    "WEBMCP AVAILABLE ON THIS PAGE. Registered tools: fill_preferences. Prefer these structured tools over clicking individual form controls. If WebMCP actions are not listed directly, access document.modelContext from the page's main JavaScript world. Call document.modelContext.getTools(), inspect inputSchema, then call document.modelContext.executeTool(toolObject, JSON.stringify(input)). Use the tool object returned by getTools(). Generated tools populate supported controls and never submit forms.",
+    "WEBMCP AVAILABLE ON THIS PAGE. Registered tools: fill_preferences. Prefer these structured tools over clicking individual form controls. If WebMCP actions are not listed directly, access document.modelContext from the page's main JavaScript world. Call document.modelContext.getTools(), inspect inputSchema, then call document.modelContext.executeTool(toolObject, JSON.stringify(input)). Use the tool object returned by getTools(). Fill tools edit controls; show/choose tools activate widgets; search tools navigate and send search parameters to the website.",
   );
   assert.equal(
     agentHintText(["one", "two", "three", "four"]),
-    "WEBMCP AVAILABLE ON THIS PAGE. Registered tools: one, two, three (+1 more). Prefer these structured tools over clicking individual form controls. If WebMCP actions are not listed directly, access document.modelContext from the page's main JavaScript world. Call document.modelContext.getTools(), inspect inputSchema, then call document.modelContext.executeTool(toolObject, JSON.stringify(input)). Use the tool object returned by getTools(). Generated tools populate supported controls and never submit forms.",
+    "WEBMCP AVAILABLE ON THIS PAGE. Registered tools: one, two, three (+1 more). Prefer these structured tools over clicking individual form controls. If WebMCP actions are not listed directly, access document.modelContext from the page's main JavaScript world. Call document.modelContext.getTools(), inspect inputSchema, then call document.modelContext.executeTool(toolObject, JSON.stringify(input)). Use the tool object returned by getTools(). Fill tools edit controls; show/choose tools activate widgets; search tools navigate and send search parameters to the website.",
   );
 });

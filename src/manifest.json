@@ -28,7 +28,7 @@
     },
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js"],
+      "js": ["control-utils.js", "content.js"],
       "run_at": "document_idle"
     }
   ]

@@ -44,10 +44,6 @@ h2 {
   font-weight: 650;
 }
 
-.state.warning {
-  color: light-dark(#9a6516, #f2bd5f);
-}
-
 .state.error {
   color: light-dark(#a13a3a, #ff8a8a);
 }

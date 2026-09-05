@@ -44,7 +44,7 @@ async function refresh() {
       setState("WebMCP runtime unavailable", "error");
       compatibility.textContent = "Reload the extension from chrome://extensions and refresh this page.";
     } else {
-      setState(`${status.annotatedForms} form(s) ready`);
+      setState(`${status.toolCount} tool(s) available`);
       compatibility.textContent =
         status.runtime === "polyfill"
           ? "Packaged WebMCP page runtime active."
@@ -53,7 +53,7 @@ async function refresh() {
   } catch {
     setState("Unavailable on this page", "error");
     compatibility.textContent =
-      "Chrome blocks extensions on protected pages such as chrome:// and the Chrome Web Store.";
+      "Refresh this page and check Chrome’s Site access setting. Chrome internal pages and the Chrome Web Store cannot run extensions.";
   }
 }
 

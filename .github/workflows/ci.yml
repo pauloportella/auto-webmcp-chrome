@@ -21,4 +21,4 @@ jobs:
           node-version: 24
       - run: corepack enable
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm check
+      - run: CHROME_BIN="$(command -v google-chrome)" pnpm check

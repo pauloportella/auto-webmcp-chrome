@@ -1,6 +1,7 @@
 // Dev-only: one local poller avoids per-tab traffic; every annotated tab reloads with it.
 {
-  let buildStamp = null;
+  const buildStamp = "__AUTO_WEBMCP_BUILD_STAMP__";
+  document.documentElement.dataset.webmcpAnnotatorBuildStamp = buildStamp;
   let reloading = false;
   let tracked = false;
 
@@ -18,12 +19,6 @@
     try {
       const response = await chrome.runtime.sendMessage({ type: "DEV_BUILD_STAMP" });
       if (
-        response?.stamp &&
-        document.documentElement.dataset.webmcpAnnotatorBuildStamp !== response.stamp
-      ) {
-        document.documentElement.dataset.webmcpAnnotatorBuildStamp = response.stamp;
-      }
-      if (
         location.origin === "http://127.0.0.1:4173" &&
         buildStamp &&
         response?.stamp &&
@@ -33,7 +28,6 @@
         await chrome.runtime.sendMessage({ type: "DEV_RELOAD" });
         return;
       }
-      buildStamp = response?.stamp || buildStamp;
     } catch {
       // Reloading invalidates the old content-script context briefly.
     }

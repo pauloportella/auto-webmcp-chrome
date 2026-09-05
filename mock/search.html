@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auto WebMCP Search Lab</title><link rel="stylesheet" href="/playground.css">
+</head>
+<body>
+  <div class="topbar"><div class="nav-inner">
+    <a class="brand" href="/" aria-label="Auto WebMCP home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Auto WebMCP</a>
+    <nav aria-label="Playgrounds"><a href="/">Form lab</a><a href="/widgets">Widgets</a><a href="/search" aria-current="page">Search</a></nav>
+  </div></div>
+  <main>
+    <header>
+      <div><p class="eyebrow">The search playground</p><h1>From a request<br><span>to a results page.</span></h1></div>
+      <p>A familiar search form with a direct route. Your agent can send the search parameters in one navigation.</p>
+    </header>
+    <section class="benefits" aria-label="How search works">
+      <div><span class="step" aria-hidden="true">01</span><h2>Describe your search</h2><p>A query, a category, and a few filters.</p></div>
+      <div><span class="step" aria-hidden="true">02</span><h2>Call the search tool</h2><p>The parameters travel in the URL.</p></div>
+      <div><span class="step" aria-hidden="true">03</span><h2>Inspect what arrived</h2><p>The page shows the received values.</p></div>
+    </section>
+    <div class="workspace">
+      <aside class="lab-note">
+        <p class="eyebrow">About this lab</p><h2>One navigation.<br>A visible result.</h2>
+        <p>The search tool sends your parameters without filling the controls first. The Search button also works as a regular form submission.</p>
+        <dl><div><dt>Destination</dt><dd>This local playground</dd></div><div><dt>Data</dt><dd>Synthetic search terms</dd></div></dl>
+        <p class="hint">The received parameters below are the result. This demo does not search a real catalogue.</p>
+      </aside>
+      <section class="form-card">
+        <div class="form-intro"><p class="eyebrow">GET search · Sample data only</p><h2>Find something interesting</h2><p>Try a fictional catalogue search, then see exactly what the page received.</p></div>
+        <form role="search" method="get" action="/search?discard=old" class="form-grid">
+          <h3 class="form-section"><span aria-hidden="true">01</span> Search &amp; filters</h3>
+          <label class="full">Query <input type="search" name="q" required placeholder="For example, design books"></label>
+          <input type="hidden" name="language" value="en">
+          <label class="full">Category <select name="category"><option value="all">All</option><option value="books">Books</option></select></label>
+          <label class="choice full"><input type="checkbox" name="archive" value="yes">Include archive</label>
+          <label>First tag <input name="tag" value="one"></label><label>Second tag <input name="tag" value="two"></label>
+          <div class="actions"><button name="go" value="search">Search</button></div>
+        </form>
+        <div class="search-receipt">
+          <p class="eyebrow">Received by this page</p><h3 id="receipt-heading">Your search will appear here</h3>
+          <dl id="query-values" class="query-values"></dl>
+          <p id="receipt-hint" class="hint">Use the form above or ask your agent to run the search tool.</p>
+          <details><summary>Developer diagnostics</summary><pre id="result"></pre></details>
+        </div>
+      </section>
+    </div>
+    <footer><span>Auto WebMCP · Search playground</span><span>Runs locally. No account needed.</span></footer>
+  </main>
+  <script>
+    const query=[...new URLSearchParams(location.search)], editEvents=sessionStorage.getItem('searchLabEvents')||'0';
+    document.querySelector('#result').textContent=JSON.stringify({query,editEvents},null,2);
+    if(query.length) {
+      document.querySelector('#receipt-heading').textContent='Search parameters received';
+      document.querySelector('#receipt-hint').textContent='These values came from the current URL.';
+      for(const [name,value] of query) {
+        const row=document.createElement('div'), key=document.createElement('dt'), content=document.createElement('dd');
+        key.textContent=name;content.textContent=value||'(empty)';row.append(key,content);document.querySelector('#query-values').append(row);
+      }
+    }
+    for (const type of ['input','change','submit','formdata']) document.querySelector('form').addEventListener(type,()=>sessionStorage.setItem('searchLabEvents',String(1+Number(sessionStorage.getItem('searchLabEvents')||0))));
+  </script>
+</body></html>
