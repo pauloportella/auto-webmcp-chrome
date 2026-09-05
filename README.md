@@ -58,7 +58,7 @@ To support agents that inspect semantic page snapshots, Auto WebMCP adds a visua
 
 Form analysis runs locally in the browser. Auto WebMCP does not operate analytics, advertising, telemetry, accounts, or remote services. Fill and widget tools can trigger the website's own event handlers. Search tools send parameters to the destination website through URL navigation, where they may also appear in browser history and website logs.
 
-The current [privacy policy](PRIVACY.md) predates search navigation and must be updated before these changes are released.
+See [PRIVACY.md](PRIVACY.md) for the data-handling policy, including website events and search navigation.
 
 ## Build from source
 
@@ -104,7 +104,7 @@ pnpm package
 
 Set `CHROME_BIN` to a valid installed Chrome executable. Without it, `pnpm check` skips the browser suite. The current full check runs 14 Node test cases, including 21 real-Chrome regression scenarios and an isolated ZIP test for stale artifacts. CI supplies `CHROME_BIN`; no browser download is part of the test runner.
 
-`pnpm package` creates `release/auto-webmcp-0.10.1.zip`, using the manifest version for the filename. Production builds clear old output and exclude development reload code. Restart `pnpm dev` to return to the development build.
+`pnpm package` creates `release/auto-webmcp-0.11.0.zip`, using the manifest version for the filename. Production builds clear old output and exclude development reload code. Restart `pnpm dev` to return to the development build.
 
 ## Contributing and security
 

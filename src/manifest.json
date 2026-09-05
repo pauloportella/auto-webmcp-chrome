@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Auto WebMCP",
   "short_name": "Auto WebMCP",
-  "version": "0.10.1",
-  "description": "Turn standard web forms into structured WebMCP tools that compatible browser agents can discover and fill.",
+  "version": "0.11.0",
+  "description": "Turn forms, standalone inputs, widgets, and supported searches into structured tools for compatible browser agents.",
   "minimum_chrome_version": "149",
   "icons": {
     "16": "icons/icon16.png",

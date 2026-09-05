@@ -24,7 +24,7 @@ For live extension development, run `pnpm dev`, load `dist/` as an unpacked exte
 - Keep each pull request focused on one change.
 - Add or update the smallest relevant test for behavior changes.
 - Run `pnpm check` before opening the pull request.
-- Do not weaken the no-submission behavior, local-only processing, or permission boundary without explaining the reason and impact.
+- Keep fill tools separate from search navigation, report unverified outcomes accurately, and preserve permission boundaries. Explain any change to website interactions or data handling.
 - Update public documentation when behavior, permissions, privacy, compatibility, or release steps change.
 
 Use [GitHub Security Advisories](SECURITY.md) instead of a public issue for vulnerabilities.

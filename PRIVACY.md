@@ -1,26 +1,30 @@
 # Privacy Policy for Auto WebMCP
 
-Effective date: August 26, 2026
+Effective for version 0.11.0 when published. Updated September 5, 2026.
 
-Auto WebMCP has one purpose: to turn standard web forms into structured WebMCP tools that compatible browser agents can use to populate supported controls.
+Auto WebMCP turns web forms, standalone inputs, supported widgets, and searches into structured tools that compatible browser agents can discover and invoke.
 
 ## Data handled locally
 
-Auto WebMCP reads form structure and descriptive metadata, including form and field names, labels, placeholders, ARIA text, validation constraints, option labels and values, and the page title. This information is used only to describe and register WebMCP tools in the current page.
+Auto WebMCP reads page structure and descriptive metadata, including control names, labels, placeholders, ARIA text, validation constraints, option labels and values, and the page title. It uses this information to describe and register tools in the current page. Search discovery also reads declared form routes and the current page URL.
 
-When a generated tool is invoked, Auto WebMCP processes the values supplied by the browser agent and writes them to the matching form controls. Depending on the form, those values may include personally identifiable information, authentication information, financial or payment information, health information, personal communications, or location information. Auto WebMCP processes these values locally only to populate the requested controls. It does not inspect existing user-entered text or selected state. It never submits a form.
+When a tool is invoked, Auto WebMCP processes the values supplied by the browser agent. Fill tools write supported controls and read their current values to validate and verify the requested changes. Widget tools activate disclosures or options and inspect selected state or a linked control's value to verify the outcome. Depending on the page and requested action, these values may include personal, authentication, financial, health, communication, or location information.
 
-All processing by Auto WebMCP occurs locally in the user's browser. The extension does not collect, retain, sell, transmit, or share website content, form data, personal data, browsing history, or credentials with its developer or third parties. It has no analytics, advertising, telemetry, accounts, or remote services.
+Processing runs in the user's browser. Auto WebMCP has no analytics, advertising, telemetry, accounts, or developer-operated remote services. It does not send page content or tool arguments to its developer or sell them. Website interactions and search navigation can send data to the destination website as described below. A browser agent or client that accesses the page's tools has its own data-handling practices.
 
 ## Website behavior
 
-Populating a control triggers the same input and change events that a website normally receives when a field is edited. The website may process those values according to its own functionality and privacy policy. Data is sent to the website only if the website reacts to those events or the user or agent later submits the form; Auto WebMCP itself makes no production network requests.
+Fill tools dispatch edit events and use native clicks for checkbox or radio changes. Widget tools click supported controls. The website may react by sending data, changing state, or navigating according to its own functionality and privacy policy. Fill tools do not call form submission; this does not prevent the website from reacting to edits or clicks.
 
-Generated metadata and tools exist only in the current page and are removed when the page is closed or navigated away from.
+Search tools navigate the current tab to a supported search URL. This sends search parameters to the destination website. For supported native GET forms, the URL includes supplied values and current values for omitted fields, plus successful hidden fields and the supported submit button. Forms containing password, file, or image inputs are excluded from generic search routing. The Willhaben adapter constructs a marketplace URL from the supplied query and supported filters.
+
+Search parameters can appear in browser history and destination website logs. Use these tools only for searches you intend to send to that website. The extension does not call the website's submit or form-data event handlers when constructing a search URL.
+
+The production extension does not persist entered values or learned search mappings. Generated metadata and registrations exist in the current page. They are removed when the page is closed or navigated away from; website state and browser history follow the website's and browser's own behavior.
 
 ## Website access
 
-Auto WebMCP runs on ordinary HTTP and HTTPS pages because its single purpose is to make forms available as WebMCP tools wherever the user encounters them. Chrome's **Site access** control can restrict the websites on which the extension runs. Chrome-protected pages do not allow the extension to run.
+Auto WebMCP runs on top-level HTTP and HTTPS pages to make supported controls and searches available as WebMCP tools. Chrome's **Site access** control can restrict the websites on which the extension runs. Chrome-protected pages do not allow the extension to run.
 
 ## Policy changes
 
