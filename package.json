@@ -14,6 +14,6 @@
     "check": "pnpm run build && node --test"
   },
   "devDependencies": {
-    "@mcp-b/webmcp-polyfill": "4.0.0"
+    "@mcp-b/webmcp-polyfill": "5.1.0"
   }
 }
