@@ -5,6 +5,8 @@
 
 Auto WebMCP turns ordinary forms, standalone inputs, and supported widgets into structured WebMCP tools. Compatible browser agents can populate fields, open controls, select options, and run supported searches directly from the page.
 
+**[Install Auto WebMCP from the Chrome Web Store](https://chromewebstore.google.com/detail/idbmdcomdjdeagpipanmbfcmbmnliamh)**
+
 ## Demo
 
 [![Auto WebMCP upgrading a normal form and allowing an agent to fill 27 fields in one call](artwork/demo.gif)](artwork/demo.mp4)
