@@ -17,7 +17,7 @@ Supported inputs include text fields, text areas, selects, multi-selects, radio 
 
 Standalone inputs and semantic groups outside `<form>` tags are discoverable too, including unnamed controls. Their native form ownership and names remain intact. Supported disclosures and currently rendered single-select listboxes expose separate tools, with readable labels for option tokens.
 
-As the page changes, Auto WebMCP refreshes its tools and checks live controls during filling. Results identify fields whose values could not be verified. Existing site-declared form tools are preserved, and generated names are checked against existing registrations to avoid collisions.
+As the page changes, Auto WebMCP refreshes its tools and checks live controls during filling. Results identify fields whose values could not be verified. Existing site-declared form tools are preserved, and duplicate registration names receive a numeric suffix without replacing site tools.
 
 The toolbar popup shows input-group counts and the actual registered tool list.
 
@@ -47,6 +47,8 @@ Custom calendars, arbitrary JavaScript widgets, shadow-root controls, and option
 Auto WebMCP runs on top-level HTTP and HTTPS pages. Chrome protects internal pages, including `chrome://` pages and the Chrome Web Store, from extension content scripts.
 
 ## Compatibility
+
+The popup counts tools registered by Auto WebMCP, excluding tools registered independently by the site. Automatic scans and status updates use the extension’s own registration records instead of calling native tool discovery. This avoids a Chrome 152 crash in WebMCP frame-token resolution; explicit agent discovery still depends on Chrome’s native implementation.
 
 Chrome 149 or later is required. Auto WebMCP uses Chrome's native `document.modelContext` API when available and otherwise uses a packaged compatibility runtime. No experimental Chrome flag is required to expose the page API; end-to-end discovery and invocation still depend on the browser agent or client.
 

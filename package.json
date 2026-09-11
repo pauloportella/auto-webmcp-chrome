@@ -1,6 +1,6 @@
 {
   "name": "auto-webmcp-chrome",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "private": true,
   "description": "Chrome extension that turns forms, inputs, widgets, and supported searches into structured WebMCP tools.",
   "author": "Paulo Portella",

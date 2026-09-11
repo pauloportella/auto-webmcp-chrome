@@ -24,8 +24,8 @@
   let scanAll = true;
   let scanning = false;
   let executions = 0;
-  let statusRevision = 0;
   const dirtyForms = new Set();
+  const MAX_REGISTRATION_ATTEMPTS = 100;
 
   function cleanText(value, limit) {
     return String(value || "").replace(/\s+/g, " ").trim().slice(0, limit);
@@ -340,17 +340,12 @@
     });
   }
 
-  async function publishStatus() {
-    const revision = ++statusRevision;
-    let status;
-    try {
-      const tools = await context.getTools();
-      const names = tools.map(({ name }) => cleanText(name, 128)).filter(Boolean);
-      status = { count: tools.length, names: names.slice(0, 20), error: false };
-    } catch {
-      status = { count: 0, names: [], error: true };
-    }
-    if (revision !== statusRevision) return;
+  function publishStatus() {
+    // Native getTools() can crash Chrome 152 while resolving frame tokens.
+    // Internal bookkeeping only needs the registrations we successfully created.
+    const names = [...registrations.values(), ...searches.values()]
+      .map(({ name }) => name).sort();
+    const status = { count: names.length, names: names.slice(0, 20), error: false };
     const root = document.documentElement;
     const value = JSON.stringify(status);
     if (root && root.getAttribute("data-webmcp-registry-status") !== value) {
@@ -363,6 +358,29 @@
     if (!current) return;
     current.controller.abort();
     registrations.delete(form);
+  }
+
+  async function registerTool(tool, usedNames) {
+    for (let attempt = 1; attempt <= MAX_REGISTRATION_ATTEMPTS; attempt += 1) {
+      const suffix = `_${attempt}`;
+      const name = attempt === 1 ? tool.name : `${tool.name.slice(0, 30 - suffix.length)}${suffix}`;
+      if (usedNames.has(name)) continue;
+      const controller = new AbortController();
+      try {
+        await context.registerTool({ ...tool, name }, { signal: controller.signal });
+        usedNames.add(name);
+        return { name, controller };
+      } catch (error) {
+        controller.abort();
+        // InvalidStateError also means an inactive document or invalid tool.
+        // Only a confirmed name collision permits trying another name.
+        const duplicate = runtime === "polyfill"
+          ? error?.message === `Tool already registered: ${name}`
+          : error?.name === "InvalidStateError" && error.message === "Duplicate tool name";
+        if (!duplicate) throw error;
+      }
+    }
+    throw new Error("No available tool name within the registration limit.");
   }
 
   async function executeWidget(widget, kind, args) {
@@ -406,10 +424,11 @@
   }
 
   async function register(form, usedNames) {
-    let name = cleanText(form.getAttribute("data-webmcp-complete-tool"), 128);
+    const name = cleanText(form.getAttribute("data-webmcp-complete-tool"), 128);
     const current = registrations.get(form);
     const kind = form.getAttribute("data-webmcp-tool-kind");
     if (!name || !form.isConnected || !form.matches?.(TOOL_SELECTOR) || (kind ? controlUtils.widgetKind(form) !== kind : !controlsByName(form).size)) {
+      if (current) usedNames.delete(current.name);
       unregister(form);
       return;
     }
@@ -430,15 +449,8 @@
       usedNames.delete(current.name);
       unregister(form);
     }
-    const base = name;
-    for (let suffix = 2; usedNames.has(name); suffix += 1) {
-      const ending = `_${suffix}`;
-      name = `${base.slice(0, 30 - ending.length)}${ending}`;
-    }
-    if (name !== base) form.setAttribute("data-webmcp-complete-tool", name);
-    const controller = new AbortController();
     try {
-      await context.registerTool({
+      const registered = await registerTool({
         name,
         title: cleanText(form.getAttribute("data-webmcp-tool-title"), 150),
         description: cleanText(
@@ -448,11 +460,10 @@
         inputSchema: schema,
         annotations: { readOnlyHint: false, untrustedContentHint: false },
         execute: (args) => kind ? executeWidget(form, kind, args) : executeForm(form, args),
-      }, { signal: controller.signal });
-      registrations.set(form, { name, controller, signature: signature(form, schema) });
-      usedNames.add(name);
+      }, usedNames);
+      if (registered.name !== name) form.setAttribute("data-webmcp-complete-tool", registered.name);
+      registrations.set(form, { ...registered, signature: signature(form, schema) });
     } catch {
-      controller.abort();
       console.warn("[Auto WebMCP] Could not register a form tool.");
     }
     return schema;
@@ -471,11 +482,8 @@
     if (current?.signature === fingerprint) return;
     remove();
     const base = route.name || `search_${(form.getAttribute("data-webmcp-complete-tool") || "form").replace(/^fill_/, "")}`.slice(0,30);
-    let name = base;
-    for (let n=2; usedNames.has(name); n++) name = `${base.slice(0,26)}_${n}`;
-    const controller = new AbortController();
     try {
-      await context.registerTool({name, title: route.title || "Search this site",
+      const registered = await registerTool({name: base, title: route.title || "Search this site",
         description: route.adapter
           ? "Search Willhaben in one navigation with supported area, price, condition and sorting filters. Omitted filters reset to defaults."
           : "Run this site's declared GET search in the current tab without filling or opening controls. Sends search parameters to the website and navigates away.",
@@ -493,10 +501,9 @@
             return {isError:true,content:[{type:"text",text:cleanText(error.message,200)}]};
           }
         },
-      },{signal:controller.signal});
-      searches.set(form,{name,controller,signature:fingerprint});
-      usedNames.add(name);
-    } catch { controller.abort(); }
+      }, usedNames);
+      searches.set(form,{...registered,signature:fingerprint});
+    } catch { console.warn("[Auto WebMCP] Could not register a search tool."); }
   }
 
   async function scan() {
@@ -508,20 +515,15 @@
     scanAll = false;
     dirtyForms.clear();
     try {
-      const usedNames = new Set((await context.getTools()).map(({ name }) => name));
-      if (executions) {
-        for (const form of forms) dirtyForms.add(form);
-        return;
-      }
       for (const form of registrations.keys()) {
         if (!form.isConnected || !form.matches?.(TOOL_SELECTOR)) {
-          usedNames.delete(registrations.get(form).name);
           unregister(form);
         }
       }
       for (const [form, search] of searches) {
         if (!form.isConnected) { search.controller.abort(); searches.delete(form); }
       }
+      const usedNames = new Set([...registrations.values(), ...searches.values()].map(({ name }) => name));
       await registerSearch(document.documentElement, usedNames);
       for (const form of forms) {
         try { const schema = await register(form, usedNames); await registerSearch(form, usedNames, schema); }
@@ -529,7 +531,7 @@
       }
     } finally {
       scanning = false;
-      await publishStatus();
+      publishStatus();
       if (scanAll || dirtyForms.size) scheduleScan([]);
     }
   }
@@ -601,6 +603,5 @@
     characterData: true,
     subtree: true,
   });
-  context.addEventListener?.("toolchange", () => { void publishStatus(); });
   scheduleScan();
 })();

@@ -41,7 +41,7 @@ async function render(status) {
   return elements;
 }
 
-test("popup reports browser-visible WebMCP tools without reading form values", async () => {
+test("popup reports tools registered by Auto WebMCP without reading form values", async () => {
   const elements = await render({
     annotatedForms: 2,
     generatedForms: 1,
@@ -49,15 +49,15 @@ test("popup reports browser-visible WebMCP tools without reading form values", a
     apiError: null,
     runtime: "polyfill",
     toolCount: 2,
-    toolNames: ["site_tool", "fill_search"],
+    toolNames: ["fill_preferences", "fill_search"],
   });
 
-  assert.equal(elements["#state"].textContent, "2 tool(s) available");
+  assert.equal(elements["#state"].textContent, "2 Auto WebMCP tool(s) registered");
   assert.equal(elements["#generated"].textContent, "1");
   assert.equal(elements["#available"].textContent, "2");
   assert.deepEqual(
     elements["#tools"].children.map(({ textContent }) => textContent),
-    ["site_tool", "fill_search"],
+    ["fill_preferences", "fill_search"],
   );
   assert.equal(elements["#compatibility"].textContent, "Packaged WebMCP page runtime active.");
 });

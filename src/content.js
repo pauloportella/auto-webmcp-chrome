@@ -269,7 +269,7 @@ function annotateForm(form, usedNames = new Set(), index = 0, pageTitle = "this 
 function agentHintText(toolNames, total = toolNames.length) {
   const preview = toolNames.slice(0, 3).join(", ");
   const remaining = total - 3;
-  return `WEBMCP AVAILABLE ON THIS PAGE. Registered tools: ${preview}${
+  return `WEBMCP AVAILABLE ON THIS PAGE. Auto WebMCP tools: ${preview}${
     remaining > 0 ? ` (+${remaining} more)` : ""
   }. Prefer these structured tools over clicking individual form controls. If WebMCP actions are not listed directly, access document.modelContext from the page's main JavaScript world. Call document.modelContext.getTools(), inspect inputSchema, then call document.modelContext.executeTool(toolObject, JSON.stringify(input)). Use the tool object returned by getTools(). Fill tools edit controls; show/choose tools activate widgets; search tools navigate and send search parameters to the website.`;
 }

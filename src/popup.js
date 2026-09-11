@@ -44,7 +44,7 @@ async function refresh() {
       setState("WebMCP runtime unavailable", "error");
       compatibility.textContent = "Reload the extension from chrome://extensions and refresh this page.";
     } else {
-      setState(`${status.toolCount} tool(s) available`);
+      setState(`${status.toolCount} Auto WebMCP tool(s) registered`);
       compatibility.textContent =
         status.runtime === "polyfill"
           ? "Packaged WebMCP page runtime active."

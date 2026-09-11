@@ -191,6 +191,34 @@ async function runRegressionTests() {
     const result=await call(box,{option:'opaque-601'});
     assert(!result.isError && result.structuredContent?.activated===true && result.structuredContent.verified===false && clicks===1,'Unknown outcome confused with failure or verified success');
   });
+  await check('background scans avoid native discovery during frame changes', async () => {
+    const context=document.modelContext;
+    const descriptor=Object.getOwnPropertyDescriptor(context,'getTools');
+    let discoveryCalls=0;
+    Object.defineProperty(context,'getTools',{configurable:true,value(){
+      discoveryCalls++; throw new Error('Background discovery is forbidden');
+    }});
+    try {
+      const f=await mount('<form aria-label="Frame lifecycle"><input name="q"></form>');
+      for(let iteration=0;iteration<6;iteration++) {
+        const frame=document.createElement('iframe');
+        frame.srcdoc='<form><input name="child"></form>';
+        const loaded=new Promise(resolve=>frame.onload=resolve);
+        fixtures.append(frame); await loaded;
+        f.elements.q.disabled=true; await wait();
+        assert(JSON.parse(document.documentElement.getAttribute('data-webmcp-registry-status')).count===0,'Disabled tool stayed registered');
+        const navigated=new Promise(resolve=>frame.onload=resolve);
+        frame.srcdoc='<p>Frame navigated</p>'; await navigated;
+        frame.remove(); f.elements.q.disabled=false;
+        context.dispatchEvent(new Event('toolchange')); await wait();
+        assert(JSON.parse(document.documentElement.getAttribute('data-webmcp-registry-status')).count===1,'Tool did not return');
+      }
+      assert(discoveryCalls===0,'Extension called discovery during frame changes');
+    } finally {
+      if(descriptor) Object.defineProperty(context,'getTools',descriptor);
+      else delete context.getTools;
+    }
+  });
   fixtures.replaceChildren(); await wait();
   document.getElementById('results').textContent=JSON.stringify(results,null,2);
   document.getElementById('results').dataset.complete='true';
