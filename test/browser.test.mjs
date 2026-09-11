@@ -8,7 +8,7 @@ import {createServer} from 'node:http';
 
 // Run with CHROME_BIN pointing to an installed Chrome executable; no browser download.
 for (const runtime of ['polyfill', 'native']) {
-  test(`real Chrome form regressions (${runtime})`, {skip: !process.env.CHROME_BIN, timeout: 30000}, async () => {
+  test(`real Chrome form regressions (${runtime})`, {skip: !process.env.CHROME_BIN, timeout: 60000}, async () => {
     const dir = await mkdtemp(join(tmpdir(), 'auto-webmcp-test-'));
     let server, child, socket, timer;
     try {
@@ -28,9 +28,9 @@ for (const runtime of ['polyfill', 'native']) {
       let stderr = '', launchError;
       child.stderr.on('data', chunk => {stderr = (stderr + chunk).slice(-2000);});
       child.on('error', error => {launchError = error;});
-      timer = setTimeout(() => child.kill(), 25000);
+      timer = setTimeout(() => child.kill(), 55000);
       let port;
-      for (let attempt = 0; attempt < 100 && !port; attempt++) {
+      for (let attempt = 0; attempt < 300 && !port; attempt++) {
         if (launchError) throw launchError;
         if (child.exitCode !== null) throw new Error(`Chrome exited: ${stderr}`);
         try {port = Number((await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]);}
@@ -57,6 +57,18 @@ for (const runtime of ['polyfill', 'native']) {
         pending.set(id, {resolve, reject});
         socket.send(JSON.stringify({id, method: 'Runtime.evaluate', params: {expression, awaitPromise: true, returnByValue: true, timeout: 20000}}));
       });
+      // Chrome may expose the target while its initial about:blank is still active.
+      let ready = false;
+      for (let attempt = 0; attempt < 300 && !ready; attempt++) {
+        try {
+          const state = await evaluate(`location.href === ${JSON.stringify(url)} && document.readyState === 'complete' && typeof runRegressionTests === 'function'`);
+          ready = state.result?.value === true;
+        } catch (error) {
+          if (!/context.*destroyed|Cannot find context/i.test(error.message)) throw error;
+        }
+        if (!ready) await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      assert.ok(ready, `The regression page did not finish loading: ${stderr}`);
       // Await real native IPC and page promises; virtual-time dump-dom can exit mid-test.
       const response = await evaluate(`(async () => {
         if (document.readyState !== 'complete') await new Promise(resolve => addEventListener('load', resolve, {once:true}));
